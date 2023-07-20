@@ -58,6 +58,12 @@ public:
   void setControlPoint(unsigned idx, const Point& point);
 
   /*!
+   * \brief Get first and last control points
+   * \return A pair of end points
+   */
+  std::pair<Point, Point> endPoints() const;
+
+  /*!
    * \brief Get a polyline representation of the curve as a vector of points on curve
    * \param flatness Error tolerance of approximation
    * \return A vector of polyline vertices
@@ -76,6 +82,13 @@ public:
    * \return Bounding box (if use_roots is false, returns the bounding box of control points)
    */
   BoundingBox boundingBox() const;
+
+  /*!
+   * \brief Get the parameter t where curve is closest to given point
+   * \param point Point to project on curve
+   * \return double t
+   */
+  double projectPoint(const Point& point) const;
 
 protected:
   /*!

@@ -22,6 +22,9 @@ private:
 
 protected:
   void keyPressEvent(QKeyEvent* keyEvent) Q_DECL_OVERRIDE;
+  void mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent) Q_DECL_OVERRIDE;
+  void mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent) Q_DECL_OVERRIDE;
+  void mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent) Q_DECL_OVERRIDE;
 };
 
 #endif // CUSTOMSCENE_H

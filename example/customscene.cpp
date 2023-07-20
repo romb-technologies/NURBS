@@ -43,5 +43,65 @@ Delete - delete curve/polycurve");
         c_curve->setDraw_control_points(!c_curve->getDraw_control_points());
     update();
   }
+}
 
+void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
+{
+  const int sensitivity = 5;
+  NURBS::Point p(mouseEvent->scenePos().x(), mouseEvent->scenePos().y());
+  if (mouseEvent->button() == Qt::LeftButton)
+  {
+      for (auto&& curve : items())
+      {
+        if (!is_curve)
+          continue;
+
+        if (mouseEvent->modifiers().testFlag(Qt::ControlModifier))
+        {
+        }
+        else
+        {
+          for (auto&& item : selectedItems())
+            item->setSelected(false);
+          if (is_curve)
+          {
+            auto pv = c_curve->controlPoints();
+            for (uint k = 0; k < pv.size(); k++)
+              if ((pv[k] - p).norm() < sensitivity && c_curve->getDraw_control_points())
+              {
+                update_cp = true;
+                cp_to_update = std::make_pair(curve, k);
+              }
+          }
+          if (update_cp)
+            break;
+        }
+      }
+  }
+}
+
+
+void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent)
+{
+  if (mouseEvent->button() == Qt::LeftButton)
+  {
+    update_cp = false;
+    update_curvature = false;
+  }
+}
+
+void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
+{
+  NURBS::Point p(mouseEvent->scenePos().x(), mouseEvent->scenePos().y());
+  if (update_cp)
+  {
+    auto curve = cp_to_update.first;
+    if (is_curve)
+    {
+      c_curve->prepareGeometryChange();
+      c_curve->setControlPoint(cp_to_update.second, p);
+    }
+    update();
+  }
+  QGraphicsScene::mouseMoveEvent(mouseEvent);
 }

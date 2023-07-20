@@ -9,7 +9,7 @@
 class qCurve : public QGraphicsItem, public NURBS::Curve
 {
 private:
-  bool draw_control_points = false;
+  bool draw_control_points = true;
   bool draw_curvature_radious = false;
   bool locked = false;
 
