@@ -3,6 +3,7 @@
 
 #include <map>
 #include <memory>
+#include <iostream>
 #include "declarations.h"
 
 namespace NURBS {
@@ -92,7 +93,7 @@ private:
    */
   using Coeffs = Eigen::MatrixXd;
   /// Number of control points (order + 1)
-  unsigned N_{};
+  unsigned N_{}, p_{};
 
   mutable std::unique_ptr<const Curve> cached_derivative_;    /*! If generated, stores derivative for later use */
   mutable std::unique_ptr<std::vector<double>> cached_roots_; /*! If generated, stores roots for later use */
@@ -100,9 +101,12 @@ private:
   mutable std::unique_ptr<PointVector> cached_polyline_;      /*! If generated, stores polyline for later use */
   mutable double cached_polyline_flatness_{};                 /*! Flatness of cached polyline */
 
-  Eigen::MatrixXf knot_vector_;
+  mutable std::unique_ptr<Eigen::VectorXd> knot_vector_;
+  mutable unsigned m_{};
 
-  int getKnotSpanIndex(u, p);
+  Eigen::VectorXd knotVector() const;
+  int getKnotSpanIndex(double u, int p) const;
+  Eigen::VectorXd getBasisFunctions(int i, double u, int p) const;
 };
 
 }
