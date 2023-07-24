@@ -38,11 +38,33 @@ inline double _pow(double base, unsigned exp)
 
 inline Eigen::RowVectorXd _powSeries(double base, unsigned exp)
 {
-  Eigen::RowVectorXd power_series(exp);
+  Eigen::RowVectorXd power_series(exp+1);
   power_series(0) = 1;
-  for (unsigned k = 1; k < exp; k++)
+  for (unsigned k = 1; k <= exp; k++)
     power_series(k) = power_series(k - 1) * base;
   return power_series;
+}
+
+inline Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsigned drv)
+{
+  Eigen::RowVectorXd power_series = Eigen::RowVectorXd::Ones(exp+1);
+  for (int i=0; i<drv-1; i++) {
+    for (int j=0; j<=exp; j++) {
+        power_series(j) *= j-i;
+    }
+  }
+  for (unsigned k = drv; k <= exp; k++)
+    power_series(k) *= pow(base, k-drv+1);
+  return power_series;
+}
+
+inline Eigen::MatrixXd _slice(Eigen::MatrixXd base, int start, int end)
+{
+    Eigen::MatrixXd out(end-start, base.cols());
+    for (int i=start; i<end; i++) {
+        out.row(i-start) = base.row(i);
+    }
+    return out;
 }
 
 inline Eigen::VectorXd _trimZeroes(const Eigen::VectorXd& vec)
@@ -75,8 +97,24 @@ Curve::Curve(const Curve& curve)
 Curve& Curve::operator=(const Curve& curve)
 {
   control_points_ = curve.control_points_;
+  *knot_vector_ = *curve.knot_vector_;
+  p_ = curve.p_;
   resetCache();
   return *this;
+}
+
+unsigned Curve::order() const {
+    return p_;
+}
+
+void Curve::elevateOrder() {
+    p_++;
+    resetCache();
+}
+
+void Curve::lowerOrder() {
+    if (p_>0) p_--;
+    resetCache();
 }
 
 PointVector Curve::controlPoints() const
@@ -100,30 +138,52 @@ std::pair<Point, Point> Curve::endPoints() const
     return {control_points_.row(0), control_points_.row(N_ - 1)};
 }
 
+void Curve::reverse() {
+    control_points_ = control_points_.colwise().reverse().eval();
+    resetCache();
+}
+
 PointVector Curve::polyline(double flatness) const
 {
-  if (!cached_polyline_ || cached_polyline_flatness_ != flatness)
-  {
-      cached_polyline_flatness_ = flatness;
-      cached_polyline_ = std::make_unique<PointVector>();
-      for(float t=0.0; t<=1; t+=0.01) {
-          cached_polyline_->emplace_back(valueAt(t));
-      }
-  }
-  return *cached_polyline_;
+    if (!cached_polyline_ || cached_polyline_flatness_ != flatness)
+    {
+        cached_polyline_flatness_ = flatness;
+        cached_polyline_ = std::make_unique<PointVector>();
+        for(float t=0.0; t<=1; t+=0.01) {
+            cached_polyline_->emplace_back(derivativeAt(t));
+        }
+    }
+    return *cached_polyline_;
 }
 
 Point Curve::valueAt(double t) const
 {
   if (N_ == 0)
     return {0, 0};
+
   int i = getKnotSpanIndex(t, p_);
-  Eigen::VectorXd funs = getBasisFunctions(i, t, p_);
-  Point c(0, 0);
-  for (uint j=0; j<=p_; j++) {
-      c += funs[j] * control_points_.row(i+j-p_);
-  }
-  return c;
+  auto& kv = *knot_vector_;
+  double u = (t-kv(i))/(kv(i+1)-kv(i));
+
+  return _powSeries(u, p_) * basisFunction2(i, p_+1) * _slice(control_points_, i-p_, i+1);
+}
+
+
+Eigen::MatrixX2d Curve::valueAt(const std::vector<double>& t_vector) const
+{
+    Eigen::MatrixX2d c(t_vector.size(), 2);
+    if (N_ == 0)
+        return {0, 0};
+    for (int k=0; k<t_vector.size(); k++) {
+        int i = getKnotSpanIndex(t_vector[k], p_);
+        Eigen::VectorXd funs = getBasisFunctions(i, t_vector[k], p_);
+        Point c_(0, 0);
+        for (uint j=0; j<=p_; j++) {
+            c_ += funs[j] * control_points_.row(i+j-p_);
+        }
+        c.row(k) = c;
+    }
+    return c;
 }
 
 BoundingBox Curve::boundingBox() const
@@ -135,6 +195,66 @@ BoundingBox Curve::boundingBox() const
   }
   return *cached_bounding_box_;
 }
+
+const Curve& Curve::derivative() const
+{
+
+}
+
+
+const Curve& Curve::derivative(unsigned n) const {
+
+}
+
+Vector Curve::derivativeAt(unsigned n, double t) const
+{
+  if (N_ == 0)
+    return {0, 0};
+
+  int i = getKnotSpanIndex(t, p_);
+  auto& kv = *knot_vector_;
+  double u = (t-kv(i))/(kv(i+1)-kv(i));
+
+  return _powSeriesDerivative(u, p_, 2) * basisFunction2(i, p_+1) * _slice(control_points_, i-p_, i+1);
+}
+
+Vector Curve::derivativeAt(double t) const
+{
+    return derivativeAt(2, t);
+}
+
+double Curve::curvatureAt(double t) const
+{
+  Vector d1 = derivativeAt(t);
+  Vector d2 = derivativeAt(2, t);
+
+  return (d1.x() * d2.y() - d1.y() * d2.x()) / _pow(d1.norm(), 3);
+}
+
+double Curve::curvatureDerivativeAt(double t) const
+{
+  Vector d1 = derivativeAt(t);
+  Vector d2 = derivativeAt(2, t);
+  Vector d3 = derivativeAt(3, t);
+
+  return (d1.x() * d3.y() - d1.y() * d3.x()) / _pow(d1.norm(), 3) -
+         3 * d1.dot(d2) * (d1.x() * d2.y() - d1.y() * d2.x()) / _pow(d1.norm(), 5);
+}
+
+Vector Curve::tangentAt(double t, bool normalize) const {
+    Vector p(derivativeAt(t));
+    if (normalize && p.norm() > 0)
+      p.normalize();
+    return p;
+}
+
+
+Vector Curve::normalAt(double t, bool normalize) const
+{
+  Vector tangent = tangentAt(t, normalize);
+  return {-tangent.y(), tangent.x()};
+}
+
 
 void Curve::resetCache()
 {
@@ -148,6 +268,7 @@ void Curve::resetCache()
 Eigen::VectorXd Curve::knotVector() const
 {
     if (!knot_vector_ || m_ != N_+p_+1) {
+        // Default is uniform knot vector
         m_ = N_ + p_ + 1;
         knot_vector_ = std::make_unique<Eigen::VectorXd>(m_);
         auto& knot_vector = *knot_vector_;
@@ -182,6 +303,43 @@ int Curve::getKnotSpanIndex(double u, int p) const {
     return(mid);
 }
 
+Eigen::MatrixXd Curve::basisFunction2(int i, int k) const {
+    if (k==1) {
+        Eigen::VectorXd m(1); m<<1;
+        return m;
+    }
+    else {
+        Eigen::MatrixXd m(k-1, k-1);
+        m = basisFunction2(i, k-1);
+        auto& t = *knot_vector_;
+
+        Eigen::MatrixXd m1(k, k-1), m2 = Eigen::MatrixXd::Zero(k-1, k), m3(k, k-1), m4 = Eigen::MatrixXd::Zero(k-1, k);
+
+        m1 << m, Eigen::MatrixXd::Zero(1, k-1);
+        m3 << Eigen::MatrixXd::Zero(1, k-1), m;
+
+        for (int j=0; j<k-1; j++) {
+            int temp = i-(k-2-j);
+
+            m2(j, j) = 1 - (
+                        t[i]-t[temp])
+                        /(t[temp+k-1]-t[temp]
+                    );
+            m2(j, j+1) = (t[i]-t[temp])
+                        /(t[temp+k-1]-t[temp]);
+
+            m4(j, j) = -(t[i+1]-t[i])
+                        /(t[temp+k-1]-t[temp]
+                    );
+            m4(j, j+1) = (t[i+1]-t[i])
+                        /(t[temp+k-1]-t[temp]);
+        }
+        Eigen::MatrixXd out(k, k);
+        return (m1*m2) + (m3*m4);
+    }
+}
+
+
 Eigen::VectorXd Curve::getBasisFunctions(int i, double u, int p) const {
     Eigen::VectorXd N(p+1), left(p+1), right(p+1);
     N[0] = 1.0;
@@ -199,5 +357,63 @@ Eigen::VectorXd Curve::getBasisFunctions(int i, double u, int p) const {
         N[j] = saved;
     }
     return N;
+}
+
+Eigen::VectorXd Curve::getDerivativeBasisFunctions(int i, double u, int p, int n) const {
+    Eigen::MatrixXd ndu(p+1, p+1), ders(p+1, p+1), a(p+1, p+1);
+    Eigen::VectorXd left(p+1), right(p+1);
+    ndu(0, 0) = 1.0;
+
+    for (int j=1; j<=p; j++) {
+        left[j] = u - (*knot_vector_)(i+1-j);
+        right[j] = (*knot_vector_)(i+j) - u;
+        double saved = 0.0;
+        for (int r=0; r<j; r++) {
+            ndu(j, r) = right(r+1) + left(j-r);
+            double temp = ndu(r, j-1) / ndu(j, r);
+
+            ndu(r, j) = saved + right(r+1) * temp;
+            saved = left(j-r) * temp;
+        }
+        ndu(j, j) = saved;
+    }
+
+    for (int j=0; j<=p; j++) {
+        ders(0, j) = ndu(j, p);
+    }
+    for (int r=0; r<=p; r++) {
+        unsigned s1(0), s2(1), j1, j2;
+        a(0, 0) = 1.0;
+        for (int k=1; k<=n; k++) {
+            double d = 0.0;
+            int rk(r-k), pk(p-k);
+            if (r >= k) {
+                a(s2, 0) = a (s1, 0) / ndu(pk+1, rk);
+                d = a(s2, 0) * ndu(rk, pk);
+            }
+            if (rk >= -1) j1 = 1;
+                else j1 = -rk;
+            if (r-1 <= pk) j2 = k-1;
+                else j2 = p-r;
+            for (int j=j1; j<=j2; j++) {
+                a(s2, j) = (a(s1, j)-a(s1, j-1))/ndu(pk+1, rk+j);
+                d += a(s2, j)*ndu(rk+j, pk);
+            }
+            if (r <= pk) {
+                a(s2, k) = -a(s1, k-1)/ndu(pk+1, r);
+                d += a(s2, k)*ndu(r, pk);
+            }
+            ders(k, r) = d;
+            unsigned j=s1; s1=s2; s2=j;
+        }
+    }
+
+    unsigned r = p;
+    for (int k=1; k<=n; k++) {
+        for (int j=0; j<=p; j++) ders(k, j) *= r;
+        r *= (p-k);
+    }
+
+    return ders;
 }
 
