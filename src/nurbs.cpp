@@ -150,7 +150,7 @@ PointVector Curve::polyline(double flatness) const
         cached_polyline_flatness_ = flatness;
         cached_polyline_ = std::make_unique<PointVector>();
         for(float t=0.0; t<=1; t+=0.01) {
-            cached_polyline_->emplace_back(derivativeAt(t));
+            cached_polyline_->emplace_back(valueAt(t));
         }
     }
     return *cached_polyline_;
@@ -255,6 +255,25 @@ Vector Curve::normalAt(double t, bool normalize) const
   return {-tangent.y(), tangent.x()};
 }
 
+//todo: napravit bolje
+double Curve::projectPoint(const Point &point) const
+{
+    std::pair<double, double> min_point(0.0, (point - valueAt(0.0)).norm());
+
+    for (double t=0.0; t<=1.0; t+=0.01) {
+        double dist = (point - valueAt(t)).norm();
+        min_point = dist < min_point.second ? std::make_pair(t, dist) : min_point;
+    }
+    for (double t = std::max(min_point.first-0.01, 0.0);
+         t < min_point.first+0.01 && t<=1.0;
+         t += 0.0001) {
+        double dist = (point - valueAt(t)).norm();
+        min_point = dist < min_point.second ? std::make_pair(t, dist) : min_point;
+    }
+
+    return min_point.first;
+}
+
 
 void Curve::resetCache()
 {
@@ -289,7 +308,9 @@ Eigen::VectorXd Curve::knotVector() const
 }
 
 int Curve::getKnotSpanIndex(double u, int p) const {
-    if(u == knotVector()[N_])
+    if(u <= knotVector()[0])
+        return p;
+    if(u >= knotVector()[N_])
         return N_ - 1;
     int low = p;
     int high = N_ + 1;

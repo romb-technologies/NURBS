@@ -1,4 +1,4 @@
-#include "customscene.h"
+﻿#include "customscene.h"
 
 #include <QGraphicsSceneMouseEvent>
 #include <QKeyEvent>
@@ -49,15 +49,45 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
 {
   const int sensitivity = 5;
   NURBS::Point p(mouseEvent->scenePos().x(), mouseEvent->scenePos().y());
+
+  // point projection
+  if (mouseEvent->button() == Qt::RightButton)
+  {
+    dot = addEllipse(QRectF(QPointF(p.x(), p.y()), QSizeF(6, 6)), QPen(Qt::yellow), QBrush(Qt::red, Qt::SolidPattern));
+    for (auto&& curve : items())
+    {
+      if (is_curve)
+      {
+        auto t1 = c_curve->projectPoint(p);
+        auto p1 = c_curve->valueAt(t1);
+        auto tan1 = c_curve->tangentAt(t1);
+        line.insert(curve, addLine(QLineF(QPointF(p.x(), p.y()), QPointF(p1.x(), p1.y())), QPen(Qt::red)));
+        tan.insert(curve, addLine(QLineF(QPointF(p1.x(), p1.y()) - 150 * QPointF(tan1.x(), tan1.y()),
+                                         QPointF(p1.x(), p1.y()) + 150 * QPointF(tan1.x(), tan1.y())),
+                                  QPen(Qt::blue)));
+//        auto t2 = c_curve->iterateByLength(t1, 50);
+//        auto a = c_curve->valueAt(t2);
+//        byLength.insert(curve, addEllipse(QRectF(QPointF(a.x() - 3, a.y() - 3), QSizeF(6, 6)), QPen(Qt::yellow), QBrush(Qt::red, Qt::SolidPattern)));
+      }
+    }
+    show_projection = true;
+  }
   if (mouseEvent->button() == Qt::LeftButton)
   {
       for (auto&& curve : items())
       {
-        if (!is_curve)
+        if (!is_curve && !is_poly)
           continue;
 
         if (mouseEvent->modifiers().testFlag(Qt::ControlModifier))
         {
+          if (is_curve)
+          {
+            double t = c_curve->projectPoint(p);
+            auto pt = c_curve->valueAt(t);
+            if ((pt - p).norm() < 10)
+              curve->setSelected(true);
+          }
         }
         else
         {
@@ -75,6 +105,18 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
           }
           if (update_cp)
             break;
+          if (is_curve)
+          {
+            double t = c_curve->projectPoint(p);
+            auto pt = c_curve->valueAt(t);
+            auto ep = c_curve->endPoints();
+            if ((pt - p).norm() < 10 && (pt - ep.first).norm() > 20 && (pt - ep.second).norm() > 20)
+            {
+              update_curvature = true;
+              t_to_update = std::make_pair(c_curve, t);
+              break;
+            }
+          }
         }
       }
   }
@@ -83,6 +125,24 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
 
 void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent)
 {
+    if (mouseEvent->button() == Qt::RightButton)
+    {
+      if (show_projection)
+      {
+        removeItem(dot);
+        for (auto&& curve : items())
+          if (is_curve || is_poly)
+          {
+            removeItem(line[curve]);
+            removeItem(tan[curve]);
+            removeItem(byLength[curve]);
+          }
+        line.clear();
+        tan.clear();
+        //byLength.clear();
+        show_projection = false;
+      }
+    }
   if (mouseEvent->button() == Qt::LeftButton)
   {
     update_cp = false;
@@ -93,6 +153,30 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent)
 void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
 {
   NURBS::Point p(mouseEvent->scenePos().x(), mouseEvent->scenePos().y());
+
+  // project point
+  if (show_projection)
+  {
+    dot->setRect(QRectF(QPointF(p.x() - 3, p.y() - 3), QSizeF(6, 6)));
+    for (auto&& curve : items())
+    {
+      if (is_curve)
+      {
+        auto t1 = c_curve->projectPoint(p);
+        auto p_c = c_curve->valueAt(t1);
+        auto p1 = c_curve->valueAt(t1);
+        auto tan1 = c_curve->tangentAt(t1);
+        line[curve]->setLine(QLineF(QPointF(p.x(), p.y()), QPointF(p_c.x(), p_c.y())));
+        tan[curve]->setLine(QLineF(QPointF(p1.x(), p1.y()) - 500 * QPointF(tan1.x(), tan1.y()),
+                                   QPointF(p1.x(), p1.y()) + 500 * QPointF(tan1.x(), tan1.y())));
+//        auto t2 = c_curve->iterateByLength(t1, 50);
+//        auto a = c_curve->valueAt(t2);
+//        byLength[curve]->setRect(QRectF(QPointF(a.x() - 3, a.y() - 3), QSizeF(6, 6)));
+      }
+    }
+  }
+
+  // move control points
   if (update_cp)
   {
     auto curve = cp_to_update.first;

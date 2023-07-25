@@ -23,14 +23,16 @@ SOURCES += \
     main.cpp \
     mainwindow.cpp \
     qcurve.cpp \
-    ../src/nurbs.cpp
+    ../src/nurbs.cpp \
+    qgraphicsviewzoom.cpp
 
 HEADERS += \
     customscene.h \
     mainwindow.h \
     qcurve.h \
     ../include/NURBS/nurbs.h \
-    ../include/NURBS/declarations.h
+    ../include/NURBS/declarations.h \
+    qgraphicsviewzoom.h
 
 FORMS += \
     mainwindow.ui

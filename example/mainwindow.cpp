@@ -11,6 +11,7 @@ MainWindow::MainWindow(QWidget* parent)
   ui->setupUi(this);
 
   ui->graphicsView->setScene(scene);
+  new QGraphicsViewZoom(ui->graphicsView);
 
   Eigen::MatrixX2d cp1, cp2;
   cp1.resize(4, 2);
