@@ -100,13 +100,6 @@ public:
   Point valueAt(double t) const;
 
   /*!
-   * \brief Get the point on curve for a given t
-   * \param t Curve parameter
-   * \return Point on a curve for a given t
-   */
-  Point valueAt2(double t) const;
-
-  /*!
    * \brief Get the point vector on curve for given parameters
    * \param t_vector Curve parameters
    * \return Matrix of points on a curve for given parameters
@@ -187,6 +180,11 @@ public:
    */
   double projectPoint(const Point& point) const;
 
+
+  double weight(int idx) const;
+
+  void setWeight(double w, unsigned idx);
+
 protected:
   /*!
    * \brief N x 2 matrix where each row corresponds to control Point
@@ -209,11 +207,14 @@ private:
   mutable std::unique_ptr<PointVector> cached_polyline_;      /*! If generated, stores polyline for later use */
   mutable double cached_polyline_flatness_{};                 /*! Flatness of cached polyline */
 
+  mutable std::vector<std::optional<Eigen::MatrixXd>> cached_basis_functions;
 
-  mutable std::unique_ptr<Eigen::VectorXd> knot_vector_;
+  mutable std::unique_ptr<std::vector<double>> knot_vector_;
+  mutable std::unique_ptr<Eigen::VectorXd> weights_;
   mutable unsigned m_{};
 
-  Eigen::VectorXd knotVector() const;
+  std::vector<double> knotVector() const;
+  Eigen::VectorXd weights() const;
   int getKnotSpanIndex(double u, int p) const;
   Eigen::VectorXd getBasisFunctions(int i, double u, int p) const;
   Eigen::VectorXd getDerivativeBasisFunctions(int i, double u, int p, int n) const;

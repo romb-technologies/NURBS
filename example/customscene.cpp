@@ -99,6 +99,12 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
             for (uint k = 0; k < pv.size(); k++)
               if ((pv[k] - p).norm() < sensitivity && c_curve->getDraw_control_points())
               {
+                number_display = addText(
+                            QString("(%1, %2)")
+                            .arg(QString::number(p[0]), QString::number(p[1]))
+                        );
+                number_display->setPos(p[0], p[1]);
+
                 update_cp = true;
                 cp_to_update = std::make_pair(curve, k);
               }
@@ -120,6 +126,35 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
         }
       }
   }
+  if (mouseEvent->button() == Qt::MiddleButton) {
+      for (auto&& curve : items())
+      {
+        if (!is_curve && !is_poly)
+          continue;
+
+        else
+        {
+          if (is_curve)
+          {
+            auto pv = c_curve->controlPoints();
+            for (uint k = 0; k < pv.size(); k++)
+              if ((pv[k] - p).norm() < sensitivity && c_curve->getDraw_control_points())
+              {
+                number_display = addText(
+                            QString::number(c_curve->weight(k))
+                        );
+                number_display->setPos(p[0], p[1]);
+
+                update_weights = true;
+                last_weight = c_curve->weight(k);
+                cp_to_update = std::make_pair(curve, k);
+              }
+          }
+          if (update_weights)
+            break;
+        }
+      }
+  }
 }
 
 
@@ -135,7 +170,7 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent)
           {
             removeItem(line[curve]);
             removeItem(tan[curve]);
-            removeItem(byLength[curve]);
+            //removeItem(byLength[curve]);
           }
         line.clear();
         tan.clear();
@@ -145,8 +180,16 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent)
     }
   if (mouseEvent->button() == Qt::LeftButton)
   {
+    if (update_cp)
+        removeItem(number_display);
     update_cp = false;
     update_curvature = false;
+  }
+  if (mouseEvent->button() == Qt::MiddleButton)
+  {
+      if (update_weights)
+          removeItem(number_display);
+      update_weights = false;
   }
 }
 
@@ -185,7 +228,24 @@ void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
       c_curve->prepareGeometryChange();
       c_curve->setControlPoint(cp_to_update.second, p);
     }
+    number_display->setPos(p[0], p[1]);
+    number_display->setPlainText(QString("(%1, %2)")
+                                 .arg(QString::number(p[0]), QString::number(p[1]))
+            );
     update();
+  }
+  if (update_weights) {
+      auto curve = cp_to_update.first;
+      if (is_curve)
+      {
+        NURBS::Point pos = c_curve->controlPoint(cp_to_update.second);
+        c_curve->prepareGeometryChange();
+        c_curve->setWeight(last_weight + (p[0] - pos[0])*0.005, cp_to_update.second);
+      }
+      number_display->setPlainText(
+                  QString::number(c_curve->weight(cp_to_update.second))
+              );
+      update();
   }
   QGraphicsScene::mouseMoveEvent(mouseEvent);
 }

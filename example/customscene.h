@@ -10,6 +10,7 @@ class CustomScene : public QGraphicsScene
 {
 private:
   QGraphicsEllipseItem* dot;
+  QGraphicsTextItem* number_display;
   QMap<QGraphicsItem*, QGraphicsLineItem*> line;
   QMap<QGraphicsItem*, QGraphicsLineItem*> tan;
   QMap<QGraphicsItem*, QGraphicsEllipseItem*> byLength;
@@ -20,6 +21,8 @@ private:
   std::pair<qCurve*, double> t_to_update;
   bool update_cp = false;
   std::pair<QGraphicsItem*, uint> cp_to_update;
+  bool update_weights = false;
+  double last_weight;
 
 protected:
   void keyPressEvent(QKeyEvent* keyEvent) Q_DECL_OVERRIDE;
