@@ -106,7 +106,7 @@ public:
    */
   Eigen::MatrixX2d valueAt(const std::vector<double>& t_vector) const;
 
-  Eigen::MatrixXd basisFunction2(int i, int k) const;
+  Eigen::MatrixXd basisFunction2(int i) const;
 
   /*!
    * \brief Get the bounding box of curve
@@ -142,6 +142,18 @@ public:
    * \return nth curve derivative at t
    */
   Vector derivativeAt(unsigned n, double t) const;
+
+  /*!
+   * \brief Get roots of the curve on both axes
+   * \return A vector of parameters where curve passes through axes
+   */
+  std::vector<double> roots() const;
+
+  /*!
+   * \brief Get all extrema of the curve
+   * \return A vector of parameters where extrema are
+   */
+  std::vector<double> extrema() const;
 
   /*!
    * \brief Get curvature of the curve for a given t
@@ -185,6 +197,13 @@ public:
 
   void setWeight(double w, unsigned idx);
 
+  Point valueAt2(double t) const;
+  Point valueAt3(double t) const;
+
+  Eigen::ArrayXd knotVector() const;
+
+  Eigen::VectorXd weights() const;
+
 protected:
   /*!
    * \brief N x 2 matrix where each row corresponds to control Point
@@ -209,12 +228,9 @@ private:
 
   mutable std::vector<std::optional<Eigen::MatrixXd>> cached_basis_functions;
 
-  mutable std::unique_ptr<std::vector<double>> knot_vector_;
-  mutable std::unique_ptr<Eigen::VectorXd> weights_;
-  mutable unsigned m_{};
+  Eigen::ArrayXd T_;
+  Eigen::VectorXd weights_;
 
-  std::vector<double> knotVector() const;
-  Eigen::VectorXd weights() const;
   int getKnotSpanIndex(double u, int p) const;
   Eigen::VectorXd getBasisFunctions(int i, double u, int p) const;
   Eigen::VectorXd getDerivativeBasisFunctions(int i, double u, int p, int n) const;

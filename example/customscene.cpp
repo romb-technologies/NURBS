@@ -87,6 +87,7 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
             auto pt = c_curve->valueAt(t);
             if ((pt - p).norm() < 10)
               curve->setSelected(true);
+//            update();
           }
         }
         else
