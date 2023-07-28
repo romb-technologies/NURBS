@@ -2,6 +2,8 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QDoubleSpinBox>
+#include <QListWidgetItem>
 
 #include "customscene.h"
 
@@ -21,6 +23,17 @@ public:
 private:
   Ui::MainWindow* ui;
   CustomScene* scene;
+
+  std::vector<QDoubleSpinBox*> knotVectorField;
+  std::vector<QDoubleSpinBox*> weightField;
+
+  qCurve* activeCurve;
+
+  QDoubleSpinBox* makeSpinBox(double min, double max, double step, std::vector<QDoubleSpinBox*>& addTo);
+  void displayKnotVector(qCurve *curve);
+  void displayWeights(qCurve *curve);
+  void onUpdateKnot();
+  void onUpdateWeight();
 };
 
 #endif // MAINWINDOW_H

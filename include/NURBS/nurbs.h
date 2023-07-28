@@ -201,6 +201,7 @@ public:
   Point valueAt3(double t) const;
 
   Eigen::ArrayXd knotVector() const;
+  void setKnot(int idx, double value);
 
   Eigen::VectorXd weights() const;
 

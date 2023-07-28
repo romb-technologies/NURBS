@@ -75,7 +75,7 @@ Curve::Curve(Eigen::MatrixX2d points)
     , N_(control_points_.rows())
     , p_(2)
     , T_(N_+p_+1)
-    , weights_(Eigen::ArrayXd::Ones(N_+p_+1))
+    , weights_(Eigen::ArrayXd::Ones(N_))
 {
     int m = N_+p_+1;
     for (uint i=0; i<p_+1; i++) {
@@ -96,7 +96,7 @@ Curve::Curve(const PointVector& points)
     , N_(points.size())
     , p_(2)
     , T_(N_+p_+1)
-    , weights_(Eigen::ArrayXd::Ones(N_+p_+1))
+    , weights_(Eigen::ArrayXd::Ones(N_))
 {
   int m = N_+p_+1;
   for (unsigned k = 0; k < N_; k++)
@@ -398,6 +398,10 @@ Eigen::ArrayXd Curve::knotVector() const
     return T_;
 }
 
+void Curve::setKnot(int idx, double value) {
+    T_(idx) = value;
+}
+
 Eigen::VectorXd Curve::weights() const
 {
     return weights_;
@@ -419,6 +423,12 @@ int Curve::getKnotSpanIndex(double u, int p) const {
         return N_ - 1;
     int low = p;
     int high = N_ + 1;
+//    if(u <= knotVector()[0])
+//        return 0;
+//    if(u >= knotVector()[N_])
+//        return knotVector().rows()-1;
+//    int low = 0;
+//    int high = knotVector().rows();
     int mid = (low + high)/2;
     while (u < T_[mid] || u >= T_[mid+1])
     {
