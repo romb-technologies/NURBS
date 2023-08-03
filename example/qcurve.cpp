@@ -65,7 +65,7 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
       Eigen::VectorXd knots = knotVector().matrix();
       for (uint k=order(); k<controlPoints().size()+1; k++) {
           painter->setPen(Qt::green);
-//          painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
+          painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
       }
   }
 }

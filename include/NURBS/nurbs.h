@@ -18,14 +18,20 @@ public:
         ~Span() = default;
         Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
              Eigen::Ref<Eigen::ArrayXd> knot_v,
-             double start, double end);
+             double start, double end, uint p);
 
         Eigen::Ref<Eigen::MatrixX3d> wpoints;
         Eigen::Ref<Eigen::ArrayXd> knots;
 
         double start_t, end_t;
-        mutable std::optional<Eigen::MatrixXd> cached_basis_function;
+        uint p_;
+        Eigen::MatrixXd basis_function_;
+        Eigen::RowVectorXd cached_w_bf;
+        Eigen::MatrixXd cached_v_bf;
         bool contains(double t) const;
+        void update();
+        void updateControlPoints();
+        Eigen::MatrixXd getBasisFunction() const;
     };
 
   ~Curve() = default;

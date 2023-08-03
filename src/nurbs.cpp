@@ -75,9 +75,10 @@ inline Eigen::VectorXd _trimZeroes(const Eigen::VectorXd& vec)
 ///// Curve::Span
 
 Curve::Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
-                  Eigen::Ref<Eigen::ArrayXd> knot_v, double start, double end) :
-    wpoints(wpoints), knots(knot_v), start_t(start), end_t(end)
+                  Eigen::Ref<Eigen::ArrayXd> knot_v, double start, double end, uint p) :
+    wpoints(wpoints), knots(knot_v), start_t(start), end_t(end), p_(p)
 {
+    update();
 }
 
 bool Curve::Span::contains(double t) const {
@@ -85,6 +86,55 @@ bool Curve::Span::contains(double t) const {
         return false;
     else
         return (t >= start_t) && (t <= end_t);
+}
+
+Eigen::MatrixXd Curve::Span::getBasisFunction() const {
+    return basis_function_;
+}
+
+void Curve::Span::update() {
+    // generate basis function
+    Eigen::MatrixXd m(1, 1); m<<1;
+
+    static const int i = p_-1;
+    for (int k=2; k<=p_+1; k++)
+    {
+        Eigen::MatrixXd m1(k, k-1),
+                m2 = Eigen::MatrixXd::Zero(k-1, k),
+                m3(k, k-1),
+                m4 = Eigen::MatrixXd::Zero(k-1, k);
+
+        m1 << m, Eigen::MatrixXd::Zero(1, k-1);
+        m3 << Eigen::MatrixXd::Zero(1, k-1), m;
+
+        Eigen::ArrayXd
+                d0 = Eigen::ArrayXd::Constant(k-1, start_t),
+                d1 = Eigen::ArrayXd::Constant(k-1, end_t - start_t),
+                ddwn = Eigen::ArrayXd::Zero(k-1);
+
+        ddwn = knots.segment(i+1, k-1) - knots.segment(i-k+2, k-1);
+        d0 -= knots.segment(i-k+2, k-1);
+
+        d0 /= ddwn;
+        d1 /= ddwn;
+
+        m2.diagonal() = 1 - d0;
+        m2.diagonal(1) = d0;
+
+        m4.diagonal() = -d1;
+        m4.diagonal(1) = d1;
+
+        m = (m1*m2)+(m3*m4);
+    }
+    basis_function_ = m;
+
+    updateControlPoints();
+}
+
+void Curve::Span::updateControlPoints() {
+    // generate w_bf, v_bf
+    cached_v_bf = basis_function_ * wpoints.leftCols<2>();
+    cached_w_bf = basis_function_ * wpoints.col(2);
 }
 
 
@@ -119,7 +169,7 @@ Curve::Curve(Eigen::MatrixX2d points)
     for (uint i=0; i<N_-p_; i++) {
         spans.emplace_back(new Span(weighted_control_points_.middleRows(i, p_+1),
                            T_.segment(i+1, 2*p_),
-                           T_(i+p_), T_(i+p_+1)));
+                           T_(i+p_), T_(i+p_+1), p_));
     }
 
 }
@@ -189,6 +239,9 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
   control_points_.row(idx) = point;
   weighted_control_points_.row(idx).head(2) = point*weighted_control_points_(idx, 2);
   resetCache();
+  for (int i=std::max<int>(0, idx-p_); i<=idx && i<spans.size(); i++) {
+      spans[i]->update();
+  }
 }
 
 std::pair<Point, Point> Curve::endPoints() const
@@ -222,16 +275,10 @@ Point Curve::valueAt(double t) const
         return {0, 0};
 
     Span *sp = getKnotSpan(t);
-    Eigen::VectorXd test = sp->knots.matrix();
-    Eigen::MatrixX3d test2 = sp->wpoints;
-
     double u = (t - sp->start_t)/(sp->end_t - sp->start_t);
 
-    Eigen::VectorXd W = sp->wpoints.col(2);
-    Eigen::MatrixX2d V = sp->wpoints.leftCols<2>();
-
-    return (_powSeries(u, p_) * getBasisFunction(sp) * V) /
-           (_powSeries(u, p_) * getBasisFunction(sp) * W);
+    Eigen::RowVectorXd pw = _powSeries(u, p_);
+    return (pw * sp->cached_v_bf) / pw.dot(sp->cached_w_bf);
 }
 
 //spora
@@ -320,15 +367,18 @@ Vector Curve::derivativeAt(unsigned n, double t) const
     return {0, 0};
 
   int i = getKnotSpanIndex(t);
+  Span *sp = getKnotSpan(t);
   auto& kv = T_;
   double u = (t-kv[i])/(kv[i+1]-kv[i]);
 
-  Eigen::MatrixXd P = control_points_.middleRows(i-p_, p_+1);
-  Eigen::VectorXd W = weights().middleRows(i-p_, p_+1);
-  Eigen::MatrixXd V = P.array().colwise() * W.array();
+//  Eigen::MatrixXd P = control_points_.middleRows(i-p_, p_+1);
+//  Eigen::VectorXd W = weights().middleRows(i-p_, p_+1);
+//  Eigen::MatrixXd V = P.array().colwise() * W.array();
 
-  return (_powSeriesDerivative(u, p_, n) * basisFunction2(i) * V) /
-         (_powSeriesDerivative(u, p_, n) * basisFunction2(i) * W);
+//  return (_powSeriesDerivative(u, p_, n) * basisFunction2(i) * V) /
+//         (_powSeriesDerivative(u, p_, n) * basisFunction2(i) * W);
+  Eigen::RowVectorXd pw = _powSeriesDerivative(u, p_, n);
+  return (pw * sp->cached_v_bf) / pw.dot(sp->cached_w_bf);
 }
 
 Vector Curve::derivativeAt(double t) const
@@ -423,10 +473,6 @@ void Curve::resetCache()
   cached_roots_.reset();
   cached_bounding_box_.reset();
   cached_polyline_.reset();
-
-  for (int i=0; i<spans.size(); i++) {
-      spans[i]->cached_basis_function.reset();
-  }
 }
 
 Eigen::ArrayXd Curve::knotVector() const
@@ -445,6 +491,15 @@ void Curve::setKnot(int idx, double value) {
         value = std::min(value, 1.0);
     T_(idx) = value;
     resetCache();
+
+    if (idx > p_)
+        spans[idx-p_]->start_t = value;
+    if (idx <= N_)
+        spans[idx-p_-1]->end_t = value;
+
+    for (int i=0; i<spans.size(); i++) {
+        spans[i]->update();
+    }
 }
 
 double Curve::knot(int idx) {
@@ -549,7 +604,6 @@ void Curve::appendPoint(Point point) {
 
 Eigen::MatrixXd Curve::basisFunction2(int i) const
 {
-
     if (cached_basis_functions.size() == 0) {
         cached_basis_functions.resize(T_.size(), std::nullopt);
     }
@@ -588,50 +642,6 @@ Eigen::MatrixXd Curve::basisFunction2(int i) const
     }
     return *(cached_basis_functions[i]);
 
-}
-
-Eigen::MatrixXd Curve::getBasisFunction(Curve::Span *span) const {
-    if (!(span->cached_basis_function)) {
-
-        Eigen::MatrixXd m(1, 1); m<<1;
-
-        const int i = p_-1;
-
-        for (int k=2; k<=p_+1; k++)
-        {
-            Eigen::MatrixXd m1(k, k-1),
-                    m2 = Eigen::MatrixXd::Zero(k-1, k),
-                    m3(k, k-1),
-                    m4 = Eigen::MatrixXd::Zero(k-1, k);
-
-            m1 << m, Eigen::MatrixXd::Zero(1, k-1);
-            m3 << Eigen::MatrixXd::Zero(1, k-1), m;
-
-            Eigen::MatrixXd test = span->wpoints;
-
-            Eigen::ArrayXd
-                    d0 = Eigen::ArrayXd::Constant(k-1, span->start_t),
-                    d1 = Eigen::ArrayXd::Constant(k-1, span->end_t - span->start_t),
-                    ddwn = Eigen::ArrayXd::Zero(k-1);
-
-            ddwn = span->knots.segment(i+1, k-1) - span->knots.segment(i-k+2, k-1);
-            d0 -= span->knots.segment(i-k+2, k-1);
-
-            d0 /= ddwn;
-            d1 /= ddwn;
-
-            m2.diagonal() = 1 - d0;
-            m2.diagonal(1) = d0;
-
-            m4.diagonal() = -d1;
-            m4.diagonal(1) = d1;
-
-            m = (m1*m2)+(m3*m4);
-        }
-
-        span->cached_basis_function = m;
-    }
-    return *(span->cached_basis_function);
 }
 
 Curve::Span *Curve::getKnotSpan(double t) const
