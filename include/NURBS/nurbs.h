@@ -12,6 +12,22 @@ namespace NURBS {
 class Curve
 {
 public:
+
+    class Span {
+    public:
+        ~Span() = default;
+        Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
+             Eigen::Ref<Eigen::ArrayXd> knot_v,
+             double start, double end);
+
+        Eigen::Ref<Eigen::MatrixX3d> wpoints;
+        Eigen::Ref<Eigen::ArrayXd> knots;
+
+        double start_t, end_t;
+        mutable std::optional<Eigen::MatrixXd> cached_basis_function;
+        bool contains(double t) const;
+    };
+
   ~Curve() = default;
 
   /*!
@@ -32,7 +48,7 @@ public:
   Curve& operator=(Curve&&) = default;
 
   /*!
-   * \brief Get order of the curve (Nth order curve is described with N+1 points);
+   * \brief Get order of the curve;
    * \return Order of curve
    */
   unsigned order() const;
@@ -202,8 +218,13 @@ public:
 
   Eigen::ArrayXd knotVector() const;
   void setKnot(int idx, double value);
+  double knot(int idx);
+
+  void appendPoint(Point point);
 
   Eigen::VectorXd weights() const;
+
+  void insertKnot(double t, int s, int r);
 
 protected:
   /*!
@@ -211,6 +232,7 @@ protected:
    * \warning Any changes made to control_points_ require a call to resetCache() funtion!
    */
   Eigen::MatrixX2d control_points_;
+  Eigen::MatrixX3d weighted_control_points_;
 
   using BasisFunctionsMap = std::map<unsigned, Eigen::MatrixXd>;
 
@@ -231,9 +253,12 @@ private:
 
   Eigen::ArrayXd T_;
   Eigen::VectorXd weights_;
+  mutable std::vector<Span*> spans;
 
-  int getKnotSpanIndex(double u, int p) const;
+  int getKnotSpanIndex(double t) const;
+  Span *getKnotSpan(double t) const;
   Eigen::VectorXd getBasisFunctions(int i, double u, int p) const;
+  Eigen::MatrixXd getBasisFunction(Curve::Span *span) const;
   Eigen::VectorXd getDerivativeBasisFunctions(int i, double u, int p, int n) const;
 };
 

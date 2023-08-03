@@ -34,6 +34,9 @@ MainWindow::MainWindow(QWidget* parent)
   qCurve* curve1 = new qCurve(cp1 * 5);
   qCurve* curve2 = new qCurve(cp2 * 5);
 
+  //curve2->insertKnot(0.4, 1, 1);
+  //curve1->appendPoint({600, 1000});
+
   scene->addItem(curve1);
   scene->addItem(curve2);
 
@@ -61,7 +64,7 @@ MainWindow::MainWindow(QWidget* parent)
 
   // cached basis fucntions
   auto start = std::chrono::steady_clock::now();
-  for(int k = 0; k < 1000;k++)
+  for(int k = 0; k < 1000; k++)
       {
       volatile auto asd = c.valueAt(0.5);
   }
@@ -69,18 +72,19 @@ MainWindow::MainWindow(QWidget* parent)
   std::chrono::duration<double> elapsed_seconds = end - start;
   std::cout << "cached basis functions: " << elapsed_seconds.count() << "\n";
 
-  // cached basis fucntions (again)
-  for(int k = 0; k < 1000;k++)
+  start = std::chrono::steady_clock::now();
+  // cached basis functions (again)
+  for(int k = 0; k < 1000; k++)
       {
-      volatile auto asd = c.valueAt3(0.5);
+      volatile auto asd = c.valueAt(0.5);
   }
   end = std::chrono::steady_clock::now();
   elapsed_seconds = end - start;
-  std::cout << "de boor bla: " << elapsed_seconds.count() << "\n";
+  std::cout << "cached basis functions (again): " << elapsed_seconds.count() << "\n";
 
   //de boor method
   start = std::chrono::steady_clock::now();
-  for(int k = 0; k < 1000;k++)
+  for(int k = 0; k < 1000; k++)
       {
       volatile auto asd = c.valueAt2(0.5);
   }
@@ -103,7 +107,7 @@ QDoubleSpinBox* MainWindow::makeSpinBox(double min, double max, double step, std
 
 
 void MainWindow::displayKnotVector(qCurve *curve) {
-    // Clear previous knot vector
+    //Clear previous knot vector
     for (int i=0; i<knotVectorField.size(); i++) {
         delete knotVectorField[i];
     }
@@ -120,6 +124,7 @@ void MainWindow::displayKnotVector(qCurve *curve) {
                 this,
                 [this, i, curve](double d){
                         curve->setKnot(i, d);
+                        qobject_cast<QDoubleSpinBox*>(sender())->setValue(curve->knot(i));
                         scene->update();
                 });
     }

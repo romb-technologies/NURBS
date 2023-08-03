@@ -112,18 +112,6 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
           }
           if (update_cp)
             break;
-          if (is_curve)
-          {
-            double t = c_curve->projectPoint(p);
-            auto pt = c_curve->valueAt(t);
-            auto ep = c_curve->endPoints();
-            if ((pt - p).norm() < 10 && (pt - ep.first).norm() > 20 && (pt - ep.second).norm() > 20)
-            {
-              update_curvature = true;
-              t_to_update = std::make_pair(c_curve, t);
-              break;
-            }
-          }
         }
       }
   }

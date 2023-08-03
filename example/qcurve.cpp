@@ -45,18 +45,28 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
 
   if (draw_control_points)
   {
-    const int d = 6;
+    const int dot_size = 6;
     painter->setBrush(QBrush(Qt::blue, Qt::SolidPattern));
     NURBS::PointVector points = controlPoints();
     for (uint k = 1; k < points.size(); k++)
     {
       painter->setPen(Qt::blue);
-      painter->drawEllipse(QRectF(points[k - 1].x() - d / 2, points[k - 1].y() - d / 2, d, d));
+      painter->drawEllipse(QRectF(points[k - 1].x() - dot_size / 2, points[k - 1].y() - dot_size / 2, dot_size, dot_size));
       painter->setPen(QPen(QBrush(Qt::gray), 1, Qt::DotLine));
       painter->drawLine(QLineF(points[k - 1].x(), points[k - 1].y(), points[k].x(), points[k].y()));
     }
     painter->setPen(Qt::blue);
-    painter->drawEllipse(QRectF(points.back().x() - d / 2, points.back().y() - d / 2, d, d));
+    painter->drawEllipse(QRectF(points.back().x() - dot_size / 2, points.back().y() - dot_size / 2, dot_size, dot_size));
+  }
+
+  if (draw_knots) {
+      const int dot_size = 4;
+      painter->setBrush(QBrush(Qt::green, Qt::SolidPattern));
+      Eigen::VectorXd knots = knotVector().matrix();
+      for (uint k=order(); k<controlPoints().size()+1; k++) {
+          painter->setPen(Qt::green);
+//          painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
+      }
   }
 }
 
