@@ -268,7 +268,6 @@ PointVector Curve::polyline(double flatness) const
 }
 
 
-//spora
 Point Curve::valueAt(double t) const
 {
     if (N_ == 0)
@@ -281,25 +280,15 @@ Point Curve::valueAt(double t) const
     return (pw * sp->cached_v_bf) / pw.dot(sp->cached_w_bf);
 }
 
-//spora
-//Point Curve::valueAt(double t) const
-//{
-//    if (N_ == 0)
-//        return {0, 0};
 
-//    int i = getKnotSpanIndex(t);
-//    double u = (t-T_[i])/(T_[i+1]-T_[i]);
-
-//    Eigen::MatrixXd P = control_points_.middleRows(i-p_, p_+1);
-//    Eigen::VectorXd W = weights().middleRows(i-p_, p_+1);
-//    Eigen::MatrixXd V = P.array().colwise() * W.array();
-
-//    return (_powSeries(u, p_) * basisFunction2(i) * V) /
-//         (_powSeries(u, p_) * basisFunction2(i) * W);
-//}
+Eigen::MatrixX2d Curve::valueAt(const std::vector<double>& t_vector) const {
+    Eigen::MatrixXd out(t_vector.size(), 2);
+    for (unsigned k = 0; k < t_vector.size(); k++)
+        out.row(k) = valueAt(t_vector[k]);
+    return out;
+}
 
 
-//najbolja
 Point Curve::valueAt2(double t) const
 {
     if (N_ == 0)
@@ -317,38 +306,19 @@ Point Curve::valueAt2(double t) const
 }
 
 
-//nema weightove
-Point Curve::valueAt3(double t) const {
-    int i = getKnotSpanIndex(t);
-    Eigen::MatrixX2d d = control_points_.middleRows(i - p_, p_ + 1);
-
-    for (uint r = 1; r <= p_; ++r) {
-        for (uint j = p_; j >= r; --j) {
-            double alpha = (t - T_[j + i - p_]) / (T_[j + i + 1 - r] - T_[j + i - p_]);
-            d.row(j) = (1.0 - alpha) * d.row(j - 1) + alpha * d.row(j);
-        }
-    }
-
-    return d.row(p_);
-}
-
 BoundingBox Curve::boundingBox() const
 {
-  if (!cached_bounding_box_)
-  {
-      double minx = INT_MAX, miny = INT_MAX, maxx = INT_MIN, maxy = INT_MIN;
-      for (double t=T_(p_); t < T_(N_) + 0.005; t+= 0.01) {
-          Point p = valueAt(t);
-          minx = std::min(minx, p(0));
-          miny = std::min(miny, p(1));
-          maxx = std::max(maxx, p(0));
-          maxy = std::max(maxy, p(1));
-      }
+    if (!cached_bounding_box_)
+    {
+      auto extremes = valueAt(extrema());
+      extremes.conservativeResize(extremes.rows() + 2, Eigen::NoChange);
+      extremes.row(extremes.rows() - 1) = control_points_.row(0);
+      extremes.row(extremes.rows() - 2) = control_points_.row(N_ - 1);
 
-      cached_bounding_box_ = std::make_unique<BoundingBox>(Point(minx, miny),
-                                                           Point(maxx, maxy));
-  }
-  return *cached_bounding_box_;
+      cached_bounding_box_ = std::make_unique<BoundingBox>(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                                                           Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+    }
+    return *cached_bounding_box_;
 }
 
 const Curve& Curve::derivative() const
@@ -386,33 +356,69 @@ Vector Curve::derivativeAt(double t) const
     return derivativeAt(2, t);
 }
 
-//std::vector<double> Curve::roots() const
-//{
-//  if (!cached_roots_)
-//  {
-//    cached_roots_ = std::make_unique<std::vector<double>>();
-//    if (N_ > 1)
-//    {
-//      Eigen::MatrixXd bezier_polynomial = bernsteinCoeffs(N_) * control_points_;
-//      Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-//      auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
-//      auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
-//      _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
-//      if (trimmed_x.size() > 1)
-//      {
-//        poly_solver.compute(trimmed_x);
-//        poly_solver.realRoots(roots);
-//      }
-//      if (trimmed_y.size() > 1)
-//      {
-//        poly_solver.compute(trimmed_y);
-//        poly_solver.realRoots(roots);
-//      }
-//      std::swap(roots, *cached_roots_);
-//    }
-//  }
-//  return *cached_roots_;
-//}
+std::vector<double> Curve::roots() const
+{
+  if (!cached_roots_)
+  {
+    cached_roots_ = std::make_unique<std::vector<double>>();
+    if (N_ > 1)
+    {
+        Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
+        for (int i=0; i<spans.size(); i++)
+        {
+            Eigen::MatrixXd bezier_polynomial = spans[i]->cached_v_bf;
+
+            auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
+            auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
+
+            _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
+            if (trimmed_x.size() > 1)
+            {
+                poly_solver.compute(trimmed_x);
+                poly_solver.realRoots(roots);
+            }
+            if (trimmed_y.size() > 1)
+            {
+                poly_solver.compute(trimmed_y);
+                poly_solver.realRoots(roots);
+            }
+            for (int j=0; j<trimmed_x.size() + trimmed_y.size(); j++)
+                cached_roots_->emplace_back(roots[i]);
+        }
+    }
+  }
+  return *cached_roots_;
+}
+
+std::vector<double> Curve::extrema() const {
+    std::vector<double> extr;
+    if (N_ > 1)
+    {
+        Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
+        for (int i=0; i<spans.size(); i++)
+        {
+            Eigen::MatrixXd bezier_polynomial = spans[i]->cached_v_bf;
+
+            auto trimmed_x = _trimZeroes(bezier_polynomial.col(0).tail(p_));
+            auto trimmed_y = _trimZeroes(bezier_polynomial.col(1).tail(p_));
+
+            _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
+            if (trimmed_x.size() > 1)
+            {
+                poly_solver.compute(trimmed_x);
+                poly_solver.realRoots(roots);
+            }
+            if (trimmed_y.size() > 1)
+            {
+                poly_solver.compute(trimmed_y);
+                poly_solver.realRoots(roots);
+            }
+            for (int j=0; j<trimmed_x.size() + trimmed_y.size(); j++)
+                extr.emplace_back(roots[i]);
+        }
+    }
+    return extr;
+}
 
 double Curve::curvatureAt(double t) const
 {
