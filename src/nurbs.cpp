@@ -3,10 +3,6 @@
 #include <numeric>
 #include <limits>
 
-//testiranje
-#include <chrono>
-#include <stdio.h>
-
 #include <unsupported/Eigen/FFT>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <unsupported/Eigen/Polynomials>
@@ -84,24 +80,6 @@ Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& first, const Eigen::
     return out;
 }
 
-Eigen::VectorXd _dividePolynomials(const Eigen::VectorXd& first, const Eigen::VectorXd& second)
-{
-
-}
-
-unsigned long _binomial(unsigned long n, unsigned long k) {
-  unsigned long c = 1;
-
-  if (k > n-k) // take advantage of symmetry
-    k = n-k;
-
-  for (int i = 1; i <= k; i++, n--) {
-    c = (c / i * n) + (c % i * n / i);
-  }
-
-  return c;
-}
-
 ///// Curve::Span
 
 Curve::Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
@@ -111,18 +89,25 @@ Curve::Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
     update();
 }
 
-bool Curve::Span::contains(double t) const {
+bool Curve::Span::contains(double t) const
+{
     if (start_t==end_t)
         return false;
     else
         return (t >= start_t) && (t <= end_t);
 }
 
-Eigen::MatrixXd Curve::Span::getBasisFunction() const {
+Eigen::MatrixXd Curve::Span::getBasisFunction() const
+{
     return basis_function_;
 }
 
-void Curve::Span::update() {
+void Curve::Span::update()
+{
+    // update start and end
+    start_t = knots(p_-1);
+    end_t = knots(p_);
+
     // generate basis function
     Eigen::MatrixXd m(1, 1); m<<1;
 
@@ -161,7 +146,8 @@ void Curve::Span::update() {
     updateControlPoints();
 }
 
-void Curve::Span::updateControlPoints() {
+void Curve::Span::updateControlPoints()
+{
     // generate w_bf, v_bf
     cached_v_bf = basis_function_ * wpoints.leftCols<2>();
     cached_w_bf = basis_function_ * wpoints.col(2);
@@ -313,28 +299,12 @@ Point Curve::valueAt(double t) const
 }
 
 
-Eigen::MatrixX2d Curve::valueAt(const std::vector<double>& t_vector) const {
+Eigen::MatrixX2d Curve::valueAt(const std::vector<double>& t_vector) const
+{
     Eigen::MatrixXd out(t_vector.size(), 2);
     for (unsigned k = 0; k < t_vector.size(); k++)
         out.row(k) = valueAt(t_vector[k]);
     return out;
-}
-
-
-Point Curve::valueAt2(double t) const
-{
-    if (N_ == 0)
-        return {0, 0};
-    int i = getKnotSpanIndex(t);
-
-    Eigen::VectorXd test = T_.matrix();
-    Eigen::VectorXd funs = getBasisFunctions(i, t, p_).transpose();
-
-    Eigen::MatrixXd P = control_points_.middleRows(i-p_, p_+1);
-    Eigen::VectorXd W = weights().middleRows(i-p_, p_+1);
-    Eigen::MatrixXd V = P.array().colwise() * W.array();
-
-    return (funs.transpose() * V) / (funs.transpose() * W);
 }
 
 
@@ -359,7 +329,8 @@ const Curve& Curve::derivative() const
 }
 
 
-const Curve& Curve::derivative(unsigned n) const {
+const Curve& Curve::derivative(unsigned n) const
+{
 
 }
 
@@ -372,12 +343,11 @@ Vector Curve::derivativeAt(unsigned n, double t) const
   double u = (t - sp->start_t)/(sp->end_t - sp->start_t);
 
   // temporary solution
-  // (wake me up) wake me up inside (i can't wake up) wake me up inside (save me)
 
   Eigen::RowVectorXd pw   = _powSeries(u, p_);
   Eigen::RowVectorXd pwd1 = _powSeriesDerivative(u, p_, 1);
   Eigen::RowVectorXd pwd2 = _powSeriesDerivative(u, p_, 2);
-  Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 2);
+  Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 3);
 
   Eigen::MatrixX2d r = sp->cached_v_bf;
   Eigen::VectorXd s = sp->cached_w_bf;
@@ -452,7 +422,8 @@ std::vector<double> Curve::roots() const
   return *cached_roots_;
 }
 
-std::vector<double> Curve::extrema() const {
+std::vector<double> Curve::extrema() const
+{
     std::vector<double> extr;
     if (N_ > 1)
     {
@@ -500,7 +471,8 @@ double Curve::curvatureDerivativeAt(double t) const
          3 * d1.dot(d2) * (d1.x() * d2.y() - d1.y() * d2.x()) / _pow(d1.norm(), 5);
 }
 
-Vector Curve::tangentAt(double t, bool normalize) const {
+Vector Curve::tangentAt(double t, bool normalize) const
+{
     Vector p(derivativeAt(t));
     if (normalize && p.norm() > 0)
       p.normalize();
@@ -514,7 +486,6 @@ Vector Curve::normalAt(double t, bool normalize) const
   return {-tangent.y(), tangent.x()};
 }
 
-//todo: napravit bolje
 double Curve::projectPoint(const Point &point) const
 {
     std::pair<double, double> min_point(0.0, (point - valueAt(0.0)).norm());
@@ -522,7 +493,6 @@ double Curve::projectPoint(const Point &point) const
     for (int i=0; i<spans.size(); i++) {
         Span *sp = spans[i];
         Eigen::MatrixX2d
-                p0 = sp->cached_v_bf,
                 p1 = Eigen::MatrixXd::Zero(p_+1, 2);
 
         p1.topRows(p_) = (sp->cached_v_bf.array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
@@ -530,23 +500,9 @@ double Curve::projectPoint(const Point &point) const
         Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_+1);
         pb.head(p_) = (sp->cached_w_bf.array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
-        //staro
-
-        Eigen::VectorXd temp(4);
-        temp << 1, 0, 0, 0;
-
-//        Eigen::VectorXd poly1 = _multiplyPolynomials(p0.col(0), p1.col(0)) +
-//                               _multiplyPolynomials(p0.col(1), p1.col(1));
-//        poly1 -= point(0) * _multiplyPolynomials(p1.col(0), temp) +
-//                point(1) * _multiplyPolynomials(p1.col(1), temp);
-//                               -point(0) * _multiplyPolynomials(p1.col(0), pb) -
-//                               point(1) * _multiplyPolynomials(p1.col(1), pb);
-
-        //novo
-
         Eigen::MatrixX2d left = sp->cached_v_bf - (point*sp->cached_w_bf).transpose();
+
         Eigen::MatrixX2d right(2*p_+1, 2);
-        //right = - pb * sp->cached_v_bf + sp->cached_w_bf * p1;
         right.col(0) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(0)) + _multiplyPolynomials(sp->cached_w_bf, p1.col(0));
         right.col(1) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(1)) + _multiplyPolynomials(sp->cached_w_bf, p1.col(1));
 
@@ -556,8 +512,6 @@ double Curve::projectPoint(const Point &point) const
         Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
         poly_solver.compute(_trimZeroes(poly));
         poly_solver.realRoots(candidates);
-
-
 
         for (int i=0; i<candidates.size(); i++) {
             double t = candidates[i] * (sp->end_t - sp->start_t) + sp->start_t;
@@ -599,17 +553,18 @@ void Curve::setKnot(int idx, double value) {
     T_(idx) = value;
     resetCache();
 
-    if (idx >= p_ && idx < N_)
-        spans[idx-p_]->start_t = value;
-    if (idx > p_ && idx <= N_)
-        spans[idx-p_-1]->end_t = value;
+//    if (idx >= p_ && idx < N_)
+//        spans[idx-p_]->start_t = value;
+//    if (idx > p_ && idx <= N_)
+//        spans[idx-p_-1]->end_t = value;
 
     for (int i=0; i<spans.size(); i++) {
         spans[i]->update();
     }
 }
 
-double Curve::knot(int idx) {
+double Curve::knot(int idx)
+{
     return T_(idx);
 }
 
@@ -618,11 +573,13 @@ Eigen::VectorXd Curve::weights() const
     return weights_;
 }
 
-double Curve::weight(int idx) const {
+double Curve::weight(int idx) const
+{
     return weights_(idx);
 }
 
-void Curve::setWeight(double w, unsigned idx) {
+void Curve::setWeight(double w, unsigned idx)
+{
     weights_(idx) = w;
     weighted_control_points_.row(idx) *= w / weighted_control_points_(idx, 2);
 
@@ -633,7 +590,8 @@ void Curve::setWeight(double w, unsigned idx) {
     resetCache();
 }
 
-int Curve::getKnotSpanIndex(double t) const {
+int Curve::getKnotSpanIndex(double t) const
+{
     int span;
     for (span=p_; span<N_; span++) {
         if (t < T_(span+1))
@@ -642,7 +600,8 @@ int Curve::getKnotSpanIndex(double t) const {
     return N_-1;
 }
 
-void Curve::insertKnot(double t, int s, int r) {
+void Curve::insertKnot(double t, int s, int r)
+{
     int mp = T_.rows();
     int nq = N_ + r;
     int k = getKnotSpanIndex(t);
@@ -682,7 +641,8 @@ void Curve::insertKnot(double t, int s, int r) {
     resetCache();
 }
 
-void Curve::appendPoint(Point point) {
+void Curve::appendPoint(Point point)
+{
     control_points_.conservativeResize(N_+1, 2);
     control_points_.row(N_) = point;
 
@@ -697,48 +657,6 @@ void Curve::appendPoint(Point point) {
     resetCache();
 }
 
-Eigen::MatrixXd Curve::basisFunction2(int i) const
-{
-    if (cached_basis_functions.size() == 0) {
-        cached_basis_functions.resize(T_.size(), std::nullopt);
-    }
-    if (!cached_basis_functions[i]) {
-
-        auto& t = T_;
-        Eigen::MatrixXd m(1, 1); m<<1;
-
-        for (uint k=2; k<=p_+1; k++)
-        {
-            Eigen::MatrixXd m1(k, k-1), m2 = Eigen::MatrixXd::Zero(k-1, k), m3(k, k-1), m4 = Eigen::MatrixXd::Zero(k-1, k);
-
-            m1 << m, Eigen::MatrixXd::Zero(1, k-1);
-            m3 << Eigen::MatrixXd::Zero(1, k-1), m;
-
-            Eigen::ArrayXd
-                    d0 = Eigen::ArrayXd::Constant(k-1, t[i]),
-                    d1 = Eigen::ArrayXd::Constant(k-1, t[i+1]-t[i]),
-                    ddwn = Eigen::ArrayXd::Zero(k-1);
-
-            ddwn = t.segment(i+1, k-1) - t.segment(i-k+2, k-1);
-            d0 -= t.segment(i-k+2, k-1);
-            d0 /= ddwn;
-            d1 /= ddwn;
-
-            m2.diagonal() = 1 - d0;
-            m2.diagonal(1) = d0;
-
-            m4.diagonal() = -d1;
-            m4.diagonal(1) = d1;
-
-            m = (m1*m2)+(m3*m4);
-        }
-
-        cached_basis_functions[i] = m;
-    }
-    return *(cached_basis_functions[i]);
-
-}
-
 Curve::Span *Curve::getKnotSpan(double t) const
 {
     for (int i=0; i<spans.size(); i++) {
@@ -746,81 +664,3 @@ Curve::Span *Curve::getKnotSpan(double t) const
     }
     return spans.back();
 }
-
-
-Eigen::VectorXd Curve::getBasisFunctions(int i, double u, int p) const {
-    Eigen::VectorXd N(p+1), left(p+1), right(p+1);
-    N[0] = 1.0;
-    for (int j=1; j<=p; j++)
-    {
-        left[j] = u - T_[i+1-j];
-        right[j] = T_[i+j] - u;
-        N[j]= 0.0;
-        for (int r=0; r<j; r++)
-        {
-            double temp = N[r]/(right[r+1]+left[j-r]);
-            N[r] = N[j]+right[r+1]*temp;
-            N[j] = left[j-r]*temp;
-        }
-    }
-    return N;
-}
-
-Eigen::VectorXd Curve::getDerivativeBasisFunctions(int i, double u, int p, int n) const {
-    Eigen::MatrixXd ndu(p+1, p+1), ders(p+1, p+1), a(p+1, p+1);
-    Eigen::VectorXd left(p+1), right(p+1);
-    ndu(0, 0) = 1.0;
-
-    for (int j=1; j<=p; j++) {
-        left[j] = u - T_[i+1-j];
-        right[j] = T_[i+j] - u;
-        double saved = 0.0;
-        for (int r=0; r<j; r++) {
-            ndu(j, r) = right(r+1) + left(j-r);
-            double temp = ndu(r, j-1) / ndu(j, r);
-
-            ndu(r, j) = saved + right(r+1) * temp;
-            saved = left(j-r) * temp;
-        }
-        ndu(j, j) = saved;
-    }
-
-    for (int j=0; j<=p; j++) {
-        ders(0, j) = ndu(j, p);
-    }
-    for (int r=0; r<=p; r++) {
-        unsigned s1(0), s2(1), j1, j2;
-        a(0, 0) = 1.0;
-        for (int k=1; k<=n; k++) {
-            double d = 0.0;
-            int rk(r-k), pk(p-k);
-            if (r >= k) {
-                a(s2, 0) = a (s1, 0) / ndu(pk+1, rk);
-                d = a(s2, 0) * ndu(rk, pk);
-            }
-            if (rk >= -1) j1 = 1;
-                else j1 = -rk;
-            if (r-1 <= pk) j2 = k-1;
-                else j2 = p-r;
-            for (int j=j1; j<=j2; j++) {
-                a(s2, j) = (a(s1, j)-a(s1, j-1))/ndu(pk+1, rk+j);
-                d += a(s2, j)*ndu(rk+j, pk);
-            }
-            if (r <= pk) {
-                a(s2, k) = -a(s1, k-1)/ndu(pk+1, r);
-                d += a(s2, k)*ndu(r, pk);
-            }
-            ders(k, r) = d;
-            unsigned j=s1; s1=s2; s2=j;
-        }
-    }
-
-    unsigned r = p;
-    for (int k=1; k<=n; k++) {
-        for (int j=0; j<=p; j++) ders(k, j) *= r;
-        r *= (p-k);
-    }
-
-    return ders;
-}
-

@@ -82,16 +82,6 @@ MainWindow::MainWindow(QWidget* parent)
   elapsed_seconds = end - start;
   std::cout << "cached basis functions (again): " << elapsed_seconds.count() << "\n";
 
-  //de boor method
-  start = std::chrono::steady_clock::now();
-  for(int k = 0; k < 1000; k++)
-      {
-      volatile auto asd = c.valueAt2(0.5);
-  }
-  end = std::chrono::steady_clock::now();
-  elapsed_seconds = end - start;
-  std::cout << "de Boor method: " << elapsed_seconds.count() << "\n";
-
 
   ui->graphicsView->centerOn(scene->itemsBoundingRect().center());
 }
