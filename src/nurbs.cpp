@@ -79,8 +79,8 @@ Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& first, const Eigen::
     Eigen::MatrixXd mul = first * second.transpose();
     mul.colwise().reverseInPlace();
 
-    for (int i=-mul.cols()+1; i<mul.rows(); i++)
-        out(i+mul.cols()-1) = mul.diagonal(i).sum();
+    for (int i=-mul.rows()+1; i<mul.cols(); i++)
+        out(i+mul.rows()-1) = mul.diagonal(i).sum();
     return out;
 }
 
@@ -521,24 +521,36 @@ double Curve::projectPoint(const Point &point) const
 
     for (int i=0; i<spans.size(); i++) {
         Span *sp = spans[i];
-        Eigen::MatrixXd
+        Eigen::MatrixX2d
                 p0 = sp->cached_v_bf,
                 p1 = Eigen::MatrixXd::Zero(p_+1, 2);
 
         p1.topRows(p_) = (sp->cached_v_bf.array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
 
-        Eigen::VectorXd pb = Eigen::VectorXd::Zero(p_+1);
+        Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_+1);
         pb.head(p_) = (sp->cached_w_bf.array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+
+        //staro
 
         Eigen::VectorXd temp(4);
         temp << 1, 0, 0, 0;
 
-        Eigen::VectorXd poly = _multiplyPolynomials(p0.col(0), p1.col(0)) +
-                               _multiplyPolynomials(p0.col(1), p1.col(1));
-        poly -= point(0) * _multiplyPolynomials(p1.col(0), temp) +
-                point(1) * _multiplyPolynomials(p1.col(1), temp);
+//        Eigen::VectorXd poly1 = _multiplyPolynomials(p0.col(0), p1.col(0)) +
+//                               _multiplyPolynomials(p0.col(1), p1.col(1));
+//        poly1 -= point(0) * _multiplyPolynomials(p1.col(0), temp) +
+//                point(1) * _multiplyPolynomials(p1.col(1), temp);
 //                               -point(0) * _multiplyPolynomials(p1.col(0), pb) -
 //                               point(1) * _multiplyPolynomials(p1.col(1), pb);
+
+        //novo
+
+        Eigen::MatrixX2d left = sp->cached_v_bf - (point*sp->cached_w_bf).transpose();
+        Eigen::MatrixX2d right(2*p_+1, 2);
+        //right = - pb * sp->cached_v_bf + sp->cached_w_bf * p1;
+        right.col(0) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(0)) + _multiplyPolynomials(sp->cached_w_bf, p1.col(0));
+        right.col(1) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(1)) + _multiplyPolynomials(sp->cached_w_bf, p1.col(1));
+
+        Eigen::VectorXd poly = _multiplyPolynomials(left.col(0), right.col(0)) + _multiplyPolynomials(left.col(1), right.col(1));
 
         std::vector<double> candidates;
         Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
