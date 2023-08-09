@@ -172,7 +172,6 @@ void CustomScene::mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent)
     if (update_cp)
         removeItem(number_display);
     update_cp = false;
-    update_curvature = false;
   }
   if (mouseEvent->button() == Qt::MiddleButton)
   {

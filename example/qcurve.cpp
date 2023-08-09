@@ -5,11 +5,11 @@
 
 void qCurve::setDraw_control_points(bool value) { draw_control_points = value; }
 
-void qCurve::setDraw_curvature_radious(bool value) { draw_curvature_radious = value; }
+void qCurve::setDraw_curvature_radious(bool value) { draw_curvature_radius = value; }
 
 bool qCurve::getDraw_control_points() const { return draw_control_points; }
 
-bool qCurve::getDraw_curvature_radious() const { return draw_curvature_radious; }
+bool qCurve::getDraw_curvature_radious() const { return draw_curvature_radius; }
 
 bool qCurve::getLocked() const
 {
@@ -67,6 +67,21 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
           painter->setPen(Qt::green);
           painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
       }
+  }
+
+  if (draw_curvature_radius)
+  {
+    for (double t = 1.0 / 100; t <= 1.0; t += 1.0 / 200)
+    {
+      painter->setPen(QColor(abs(255 * (0.5 - t)), (int)(255 * t), (int)(255 * (1 - t))));
+      auto p = valueAt(t);
+      auto tangent = tangentAt(t);
+      NURBS::Point normal(-tangent.y(), tangent.x());
+      double kappa = curvatureAt(t);
+      auto n1 = p + normal * kappa * 100;
+      auto n2 = p - normal * kappa * 100;
+      painter->drawLine(QLineF(n1.x(), n1.y(), n2.x(), n2.y()));
+    }
   }
 }
 
