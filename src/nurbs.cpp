@@ -430,10 +430,25 @@ std::vector<double> Curve::extrema() const
         Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
         for (int i=0; i<spans.size(); i++)
         {
-            Eigen::MatrixXd bezier_polynomial = spans[i]->cached_v_bf;
+            Span *sp = spans[i];
 
-            auto trimmed_x = _trimZeroes(bezier_polynomial.col(0).tail(p_));
-            auto trimmed_y = _trimZeroes(bezier_polynomial.col(1).tail(p_));
+            // d/du R(u)
+            Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_+1, 2);
+            p1.topRows(p_) = (sp->cached_v_bf.array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+
+            // d/du S(u)
+            Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_+1);
+            pb.head(p_) = (sp->cached_w_bf.array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+
+            Eigen::RowVectorXd temp(p_+1);
+            temp << 1, 0, 0, 0;
+
+            Eigen::MatrixX2d poly(2*p_+1, 2);
+            poly.col(0) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(0)) + _multiplyPolynomials(p1.col(0), sp->cached_w_bf);
+            poly.col(1) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(1)) + _multiplyPolynomials(p1.col(1), sp->cached_w_bf);
+
+            auto trimmed_x = _trimZeroes(poly.col(0));
+            auto trimmed_y = _trimZeroes(poly.col(1));
 
             _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
             if (trimmed_x.size() > 1)
@@ -447,7 +462,8 @@ std::vector<double> Curve::extrema() const
                 poly_solver.realRoots(roots);
             }
             for (int j=0; j<trimmed_x.size() + trimmed_y.size(); j++)
-                extr.emplace_back(roots[i]);
+                if (roots[j]>=0.0 && roots[j]<=1.0)
+                    extr.emplace_back(roots[j]*(sp->end_t - sp->start_t) + sp->start_t);
         }
     }
     return extr;

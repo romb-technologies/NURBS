@@ -11,6 +11,24 @@
 #define c_curve (static_cast<qCurve*>(curve))
 #define c_curve_item(x) (static_cast<qCurve*>(x))
 
+void CustomScene::drawForeground(QPainter* painter, const QRectF& rect)
+{
+  Q_UNUSED(rect)
+
+  if (draw_box_)
+  {
+    painter->setPen(Qt::blue);
+    for (auto&& curve : items())
+    {
+      NURBS::BoundingBox bbox;
+      if (is_curve)
+        bbox = c_curve->boundingBox();
+      painter->drawRect(bbox.min().x(), bbox.min().y(), bbox.max().x() - bbox.min().x(),
+                        bbox.max().y() - bbox.min().y());
+    }
+  }
+}
+
 void CustomScene::keyPressEvent(QKeyEvent* keyEvent)
 {
   if (keyEvent->key() == 72) // key H
