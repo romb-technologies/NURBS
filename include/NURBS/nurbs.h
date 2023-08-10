@@ -85,7 +85,7 @@ public:
   /*!
    * \brief Get the control point at index idx
    * \param idx Index of chosen control point
-   * \return A vector of control points
+   * \return Control point
    */
   Point controlPoint(unsigned idx) const;
 
@@ -127,8 +127,6 @@ public:
    * \return Matrix of points on a curve for given parameters
    */
   Eigen::MatrixX2d valueAt(const std::vector<double>& t_vector) const;
-
-  Eigen::MatrixXd basisFunction2(int i) const;
 
   /*!
    * \brief Get the bounding box of curve
@@ -214,39 +212,75 @@ public:
    */
   double projectPoint(const Point& point) const;
 
-
+  /*!
+   * \brief Get the weight of the control point at index idx
+   * \param idx Weight index
+   * \return Weight at index idx
+   */
   double weight(int idx) const;
 
+  /*!
+   * \brief Set the weight of the control point at index idx
+   * \param w New weight
+   * \param idx Weight index
+   */
   void setWeight(double w, unsigned idx);
 
-  Point valueAt2(double t) const;
-  Point valueAt3(double t) const;
-
-  Eigen::ArrayXd knotVector() const;
-  void setKnot(int idx, double value);
-  double knot(int idx);
-
-  void appendPoint(Point point);
-
+  /*!
+   * \brief Get the weight vector of the curve
+   * \return Vector of weights
+   */
   Eigen::VectorXd weights() const;
 
+  /*!
+   * \brief Get the knot vector of the curve
+   * \return Array of knots
+   */
+  Eigen::ArrayXd knotVector() const;
+
+  /*!
+   * \brief Set the knot at index idx
+   * \param value New knot value
+   * \param idx Knot index
+   */
+  void setKnot(int idx, double value);
+
+  /*!
+   * \brief Get the knot at index idx
+   * \param idx Knot index
+   * \return Knot value
+   */
+  double knot(int idx);
+
+  /*!
+   * \brief Append a new control point to the end of the curve
+   * \param point New point
+   */
+  void appendPoint(Point point);
+
+  /*!
+   * \brief Insert a new knot into the curve at parameter t
+   * \param t New knot
+   * \param s Multiplicity of knot
+   * \param r Number of insertions
+   */
   void insertKnot(double t, int s, int r);
 
 protected:
   /*!
-   * \brief N x 2 matrix where each row corresponds to control Point
-   * \warning Any changes made to control_points_ require a call to resetCache() funtion!
+   * \brief N x 3 matrix where each row corresponds to a weighted control Point and its weight
+   * \warning Any changes made to weighted_control_points_ require a call to resetCache() funtion!
    */
   Eigen::MatrixX3d weighted_control_points_;
-
-  using BasisFunctionsMap = std::map<unsigned, Eigen::MatrixXd>;
 
   /// Reset all privately cached data
   inline void resetCache();
 
 private:
   /// Number of control points
-  unsigned N_{}, p_{};
+  unsigned N_{};
+  /// Order of curve
+  unsigned p_{};
 
   mutable std::unique_ptr<const Curve> cached_derivative_;    /*! If generated, stores derivative for later use */
   mutable std::unique_ptr<std::vector<double>> cached_roots_; /*! If generated, stores roots for later use */
@@ -254,16 +288,11 @@ private:
   mutable std::unique_ptr<PointVector> cached_polyline_;      /*! If generated, stores polyline for later use */
   mutable double cached_polyline_flatness_{};                 /*! Flatness of cached polyline */
 
-  mutable std::vector<std::optional<Eigen::MatrixXd>> cached_basis_functions;
-
   Eigen::ArrayXd T_;
   mutable std::vector<Span*> spans;
 
   int getKnotSpanIndex(double t) const;
   Span *getKnotSpan(double t) const;
-  Eigen::VectorXd getBasisFunctions(int i, double u, int p) const;
-  Eigen::MatrixXd getBasisFunction(Curve::Span *span) const;
-  Eigen::VectorXd getDerivativeBasisFunctions(int i, double u, int p, int n) const;
 };
 
 }
