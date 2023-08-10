@@ -157,15 +157,13 @@ void Curve::Span::updateControlPoints()
 ///// Curve::Curve
 
 Curve::Curve(Eigen::MatrixX2d points)
-    : control_points_(std::move(points))
-    , N_(control_points_.rows())
+    : N_(points.rows())
     , p_(3)
     , T_(N_+p_+1)
-    , weights_(Eigen::ArrayXd::Ones(N_))
 {
     weighted_control_points_ = Eigen::MatrixX3d(N_, 3);
-    weighted_control_points_.leftCols<2>() = control_points_;
-    weighted_control_points_.rightCols<1>() = weights_;
+    weighted_control_points_.leftCols<2>() = std::move(points);
+    weighted_control_points_.rightCols<1>() = Eigen::VectorXd::Ones(N_);
 
     // stara metoda
     uint m = N_+p_+1;
@@ -191,15 +189,14 @@ Curve::Curve(Eigen::MatrixX2d points)
 }
 
 Curve::Curve(const PointVector& points)
-    : control_points_(Eigen::Index(points.size()), Eigen::Index(2))
-    , N_(points.size())
+    : N_(points.size())
     , p_(2)
     , T_(N_+p_+1)
-    , weights_(Eigen::ArrayXd::Ones(N_))
 {
     uint m = N_+p_+1;
     for (unsigned k = 0; k < N_; k++)
-        control_points_.row(k) = points[k];
+        weighted_control_points_.row(k).head(2) = points[k];
+    weighted_control_points_.rightCols<1>() = Eigen::VectorXd::Ones(N_);
 
     for (uint i=0; i<p_+1; i++) {
         T_[i] = 0;
@@ -215,11 +212,11 @@ Curve::Curve(const PointVector& points)
 }
 
 Curve::Curve(const Curve& curve)
-    : Curve(curve.control_points_) {}
+    : Curve(curve.weighted_control_points_.leftCols<2>()) {}
 
 Curve& Curve::operator=(const Curve& curve)
 {
-  control_points_ = curve.control_points_;
+  weighted_control_points_ = curve.weighted_control_points_;
   T_ = curve.T_;
   p_ = curve.p_;
   resetCache();
@@ -244,15 +241,18 @@ PointVector Curve::controlPoints() const
 {
   PointVector points(N_);
   for (unsigned k = 0; k < N_; k++)
-    points[k] = control_points_.row(k);
+    points[k] = controlPoint(k);
   return points;
 }
 
-Point Curve::controlPoint(unsigned idx) const { return control_points_.row(idx); }
+Point Curve::controlPoint(unsigned idx) const
+{
+    Eigen::Vector3d pt = weighted_control_points_.row(idx);
+    return pt.head(2) / pt(2);
+}
 
 void Curve::setControlPoint(unsigned idx, const Point& point)
 {
-  control_points_.row(idx) = point;
   weighted_control_points_.row(idx).head(2) = point*weighted_control_points_(idx, 2);
 
   for (int i=std::max<int>(0, idx-p_); i<=idx && i<spans.size(); i++) {
@@ -264,11 +264,11 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
 
 std::pair<Point, Point> Curve::endPoints() const
 {
-    return {control_points_.row(0), control_points_.row(N_ - 1)};
+    return {controlPoint(0), controlPoint(N_ - 1)};
 }
 
 void Curve::reverse() {
-    control_points_ = control_points_.colwise().reverse().eval();
+    weighted_control_points_ = weighted_control_points_.colwise().reverse().eval();
     resetCache();
 }
 
@@ -314,8 +314,8 @@ BoundingBox Curve::boundingBox() const
     {
       auto extremes = valueAt(extrema());
       extremes.conservativeResize(extremes.rows() + 2, Eigen::NoChange);
-      extremes.row(extremes.rows() - 1) = control_points_.row(0);
-      extremes.row(extremes.rows() - 2) = control_points_.row(N_ - 1);
+      extremes.row(extremes.rows() - 1) = controlPoint(0);
+      extremes.row(extremes.rows() - 2) = controlPoint(N_ - 1);
 
       cached_bounding_box_ = std::make_unique<BoundingBox>(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
                                                            Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
@@ -545,7 +545,7 @@ double Curve::projectPoint(const Point &point) const
 
 void Curve::resetCache()
 {
-  N_ = control_points_.rows();
+  N_ = weighted_control_points_.rows();
   cached_derivative_.reset();
   cached_roots_.reset();
   cached_bounding_box_.reset();
@@ -569,11 +569,6 @@ void Curve::setKnot(int idx, double value) {
     T_(idx) = value;
     resetCache();
 
-//    if (idx >= p_ && idx < N_)
-//        spans[idx-p_]->start_t = value;
-//    if (idx > p_ && idx <= N_)
-//        spans[idx-p_-1]->end_t = value;
-
     for (int i=0; i<spans.size(); i++) {
         spans[i]->update();
     }
@@ -586,17 +581,16 @@ double Curve::knot(int idx)
 
 Eigen::VectorXd Curve::weights() const
 {
-    return weights_;
+    return weighted_control_points_.col(2);
 }
 
 double Curve::weight(int idx) const
 {
-    return weights_(idx);
+    return weighted_control_points_(idx, 2);
 }
 
 void Curve::setWeight(double w, unsigned idx)
 {
-    weights_(idx) = w;
     weighted_control_points_.row(idx) *= w / weighted_control_points_(idx, 2);
 
     for (int i=std::max<int>(0, idx-p_); i<=idx && i<spans.size(); i++) {
@@ -629,10 +623,10 @@ void Curve::insertKnot(double t, int s, int r)
     for (int i=k+1; i<mp; i++) UQ(i+r) = T_(i);
 
     // save unaltered control points
-    Eigen::MatrixX2d PQ(nq, 2), Rw(p_+1, 2);
-    for (uint i=0; i<=k-p_; i++) PQ.row(i) = control_points_.row(i);
-    for (uint i=k-s; i<N_; i++) PQ.row(i+r) = control_points_.row(i);
-    for (uint i=0; i<=p_-s; i++) Rw.row(i) = control_points_.row(k-p_+i);
+    Eigen::MatrixX3d PQ(nq, 3), Rw(p_+1, 3);
+    for (uint i=0; i<=k-p_; i++) PQ.row(i) = weighted_control_points_.row(i);
+    for (uint i=k-s; i<N_; i++) PQ.row(i+r) = weighted_control_points_.row(i);
+    for (uint i=0; i<=p_-s; i++) Rw.row(i) = weighted_control_points_.row(k-p_+i);
 
     int L = 1;
     for (int j=1; j<=r; j++) /* Insert the knot r times */
@@ -652,23 +646,20 @@ void Curve::insertKnot(double t, int s, int r)
         PQ.row(i) = Rw.row(i-L);
 
     T_ = UQ;
-    control_points_ = PQ;
-    weights_ = Eigen::ArrayXd::Ones(control_points_.rows());
+    weighted_control_points_ = PQ;
     resetCache();
 }
 
 void Curve::appendPoint(Point point)
 {
-    control_points_.conservativeResize(N_+1, 2);
-    control_points_.row(N_) = point;
+    weighted_control_points_.conservativeResize(N_+1, 2);
+    weighted_control_points_.row(N_).head(2) = point;
+    weighted_control_points_(N_, 2) = 1.0;
 
     Eigen::ArrayXd newT(T_.rows()+1);
     newT.head(N_+p_+1) = T_*(N_-2)/(N_-1);
     newT.tail(p_+1) = 1;
     T_ = newT;
-
-    weights_.conservativeResize(N_+1);
-    weights_(N_) = 1.0;
 
     resetCache();
 }

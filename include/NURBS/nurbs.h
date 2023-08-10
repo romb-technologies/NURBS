@@ -237,7 +237,6 @@ protected:
    * \brief N x 2 matrix where each row corresponds to control Point
    * \warning Any changes made to control_points_ require a call to resetCache() funtion!
    */
-  Eigen::MatrixX2d control_points_;
   Eigen::MatrixX3d weighted_control_points_;
 
   using BasisFunctionsMap = std::map<unsigned, Eigen::MatrixXd>;
@@ -246,7 +245,7 @@ protected:
   inline void resetCache();
 
 private:
-  /// Number of control points (order + 1)
+  /// Number of control points
   unsigned N_{}, p_{};
 
   mutable std::unique_ptr<const Curve> cached_derivative_;    /*! If generated, stores derivative for later use */
@@ -258,7 +257,6 @@ private:
   mutable std::vector<std::optional<Eigen::MatrixXd>> cached_basis_functions;
 
   Eigen::ArrayXd T_;
-  Eigen::VectorXd weights_;
   mutable std::vector<Span*> spans;
 
   int getKnotSpanIndex(double t) const;
