@@ -149,6 +149,7 @@ void Curve::Span::update()
 void Curve::Span::updateControlPoints()
 {
     // generate w_bf, v_bf
+    Eigen::MatrixX3d test = wpoints;
     cached_v_bf = basis_function_ * wpoints.leftCols<2>();
     cached_w_bf = basis_function_ * wpoints.col(2);
 }
@@ -208,6 +209,13 @@ Curve::Curve(const PointVector& points)
     }
     for (uint i=m-(p_+1); i<m; i++) {
         T_[i] = 1;
+    }
+
+    //spans
+    for (uint i=0; i<N_-p_; i++) {
+        spans.emplace_back(new Span(weighted_control_points_.middleRows(i, p_+1),
+                           T_.segment(i+1, 2*p_),
+                           T_(i+p_), T_(i+p_+1), p_));
     }
 }
 
@@ -652,14 +660,23 @@ void Curve::insertKnot(double t, int s, int r)
 
 void Curve::appendPoint(Point point)
 {
-    weighted_control_points_.conservativeResize(N_+1, 2);
+    weighted_control_points_.conservativeResize(N_+1, 3);
     weighted_control_points_.row(N_).head(2) = point;
     weighted_control_points_(N_, 2) = 1.0;
 
-    Eigen::ArrayXd newT(T_.rows()+1);
-    newT.head(N_+p_+1) = T_*(N_-2)/(N_-1);
-    newT.tail(p_+1) = 1;
-    T_ = newT;
+    T_.conservativeResize(N_+p_+2);
+    T_.head(N_+p_+1) = T_.head(N_+p_+1)*(N_-p_)/(N_-p_+1);
+    T_.tail(p_+1) = 1;
+
+    for (int i=0; i<spans.size(); i++) {
+        new (&(spans[i]->wpoints)) Eigen::Ref<Eigen::MatrixX3d> {weighted_control_points_.middleRows(i, p_+1)};
+        new (&(spans[i]->knots)) Eigen::Ref<Eigen::VectorXd> {T_.segment(i+1, 2*p_)};
+        spans[i]->update();
+    }
+
+    spans.emplace_back(new Span(weighted_control_points_.middleRows(N_-p_, p_+1),
+                       T_.segment(N_-p_+1, 2*p_),
+                       T_(N_), T_(N_+1), p_));
 
     resetCache();
 }
