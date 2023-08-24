@@ -613,7 +613,7 @@ int Curve::getKnotSpanIndex(double t) const
     int span;
     for (span=p_; span<N_; span++) {
         if (t < T_(span+1))
-            return span;
+            return span-p_;
     }
     return N_-1;
 }
@@ -626,36 +626,50 @@ void Curve::insertKnot(double t, int s, int r)
 
     // load new knot vector
     Eigen::ArrayXd UQ(mp+s*r);
-    for (int i=0; i<=k; i++) UQ(i)=T_(i);
-    for (int i=1; i<=r; i++) UQ(k+i)=t;
-    for (int i=k+1; i<mp; i++) UQ(i+r) = T_(i);
+    for (int i=0; i<=k+p_; i++) UQ(i)=T_(i);
+    for (int i=1; i<=r; i++) UQ(k+p_+i)=t;
+    for (int i=k+p_+1; i<mp; i++) UQ(i+r) = T_(i);
+
+    Eigen::VectorXd test = UQ;
 
     // save unaltered control points
     Eigen::MatrixX3d PQ(nq, 3), Rw(p_+1, 3);
-    for (uint i=0; i<=k-p_; i++) PQ.row(i) = weighted_control_points_.row(i);
-    for (uint i=k-s; i<N_; i++) PQ.row(i+r) = weighted_control_points_.row(i);
-    for (uint i=0; i<=p_-s; i++) Rw.row(i) = weighted_control_points_.row(k-p_+i);
+    for (uint i=0; i<=k; i++) PQ.row(i) = weighted_control_points_.row(i);
+    for (uint i=k+p_-s; i<N_; i++) PQ.row(i+r) = weighted_control_points_.row(i);
+    for (uint i=0; i<=p_-s; i++) Rw.row(i) = weighted_control_points_.row(k+i);
 
     int L = 1;
     for (int j=1; j<=r; j++) /* Insert the knot r times */
     {
-        L = k-p_+j;
+        L = k+j;
         for (uint i=0; i<=p_-j-s; i++)
         {
-            double alpha = (t-T_(L+i))/(T_(i+k+1)-T_(L+i));
+            double alpha = (t-T_(L+i))/(T_(i+k+p_+1)-T_(L+i));
             Rw.row(i) = alpha*Rw.row(i+1) + (1.0-alpha)*Rw.row(i);
         }
         PQ.row(L) = Rw.row(0);
-        PQ.row(k+r-j-s) = Rw.row(p_-j-s);
+        PQ.row(k+p_+r-j-s) = Rw.row(p_-j-s);
     }
 
     // load remaining control points
-    for(int i=L+1; i<k-s; i++)
+    for(int i=L+1; i<k+p_-s; i++)
         PQ.row(i) = Rw.row(i-L);
 
     T_ = UQ;
     weighted_control_points_ = PQ;
+
+    spans.emplace_back(new Span(weighted_control_points_.middleRows(N_-1+r-p_, p_+1),
+                       T_.segment(N_+r-p_, 2*p_),
+                       T_(N_+r-1), T_(N_+r), p_));
+
+    for (int i=0; i<spans.size(); i++) {
+        new (&(spans[i]->wpoints)) Eigen::Ref<Eigen::MatrixX3d> {weighted_control_points_.middleRows(i, p_+1)};
+        new (&(spans[i]->knots)) Eigen::Ref<Eigen::VectorXd> {T_.segment(i+1, 2*p_)};
+        spans[i]->update();
+    }
+
     resetCache();
+
 }
 
 void Curve::appendPoint(Point point)
