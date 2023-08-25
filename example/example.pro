@@ -19,6 +19,7 @@ INCLUDEPATH += /usr/include/eigen3 \
                ../include
 
 SOURCES += \
+    ../src/span.cpp \
     curvelistwidgetitem.cpp \
     customscene.cpp \
     main.cpp \
@@ -28,6 +29,7 @@ SOURCES += \
     qgraphicsviewzoom.cpp
 
 HEADERS += \
+    ../include/NURBS/span.h \
     curvelistwidgetitem.h \
     customscene.h \
     mainwindow.h \

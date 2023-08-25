@@ -68,92 +68,15 @@ inline Eigen::VectorXd _trimZeroes(const Eigen::VectorXd& vec)
   return vec.head(idx);
 }
 
-Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& first, const Eigen::VectorXd& second)
+Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd &poly1, const Eigen::VectorXd &poly2)
 {
-    Eigen::VectorXd out(first.rows() + second.rows() - 1);
+    Eigen::VectorXd result = Eigen::VectorXd::Zero(poly1.size() + poly2.size() - 1);
+    for (int i = 0; i < poly1.size(); i++)
+        for (int j = 0; j < poly2.size(); j++)
+            result[i + j] += poly1[i] * poly2[j];
 
-    Eigen::MatrixXd mul = first * second.transpose();
-    mul.colwise().reverseInPlace();
-
-    for (int i=-mul.rows()+1; i<mul.cols(); i++)
-        out(i+mul.rows()-1) = mul.diagonal(i).sum();
-    return out;
+    return result;
 }
-
-///// Curve::Span
-
-Curve::Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
-                  Eigen::Ref<Eigen::ArrayXd> knot_v, double start, double end, uint p) :
-    wpoints(wpoints), knots(knot_v), start_t(start), end_t(end), p_(p)
-{
-    update();
-}
-
-bool Curve::Span::contains(double t) const
-{
-    if (start_t==end_t)
-        return false;
-    else
-        return (t >= start_t) && (t <= end_t);
-}
-
-Eigen::MatrixXd Curve::Span::getBasisFunction() const
-{
-    return basis_function_;
-}
-
-void Curve::Span::update()
-{
-    // update start and end
-    start_t = knots(p_-1);
-    end_t = knots(p_);
-
-    // generate basis function
-    Eigen::MatrixXd m(1, 1); m<<1;
-
-    static const int i = p_-1;
-    for (int k=2; k<=p_+1; k++)
-    {
-        Eigen::MatrixXd m1(k, k-1),
-                m2 = Eigen::MatrixXd::Zero(k-1, k),
-                m3(k, k-1),
-                m4 = Eigen::MatrixXd::Zero(k-1, k);
-
-        m1 << m, Eigen::MatrixXd::Zero(1, k-1);
-        m3 << Eigen::MatrixXd::Zero(1, k-1), m;
-
-        Eigen::ArrayXd
-                d0 = Eigen::ArrayXd::Constant(k-1, start_t),
-                d1 = Eigen::ArrayXd::Constant(k-1, end_t - start_t),
-                ddwn = Eigen::ArrayXd::Zero(k-1);
-
-        ddwn = knots.segment(i+1, k-1) - knots.segment(i-k+2, k-1);
-        d0 -= knots.segment(i-k+2, k-1);
-
-        d0 /= ddwn;
-        d1 /= ddwn;
-
-        m2.diagonal() = 1 - d0;
-        m2.diagonal(1) = d0;
-
-        m4.diagonal() = -d1;
-        m4.diagonal(1) = d1;
-
-        m = (m1*m2)+(m3*m4);
-    }
-    basis_function_ = m;
-
-    updateControlPoints();
-}
-
-void Curve::Span::updateControlPoints()
-{
-    // generate w_bf, v_bf
-    Eigen::MatrixX3d test = wpoints;
-    cached_v_bf = basis_function_ * wpoints.leftCols<2>();
-    cached_w_bf = basis_function_ * wpoints.col(2);
-}
-
 
 ///// Curve::Curve
 
@@ -536,6 +459,7 @@ double Curve::projectPoint(const Point &point) const
         Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
         poly_solver.compute(_trimZeroes(poly));
         poly_solver.realRoots(candidates);
+        candidates.emplace_back(1.0);
 
         for (int i=0; i<candidates.size(); i++) {
             double t = candidates[i] * (sp->end_t - sp->start_t) + sp->start_t;
@@ -613,7 +537,7 @@ int Curve::getKnotSpanIndex(double t) const
     int span;
     for (span=p_; span<N_; span++) {
         if (t < T_(span+1))
-            return span-p_;
+            return span;
     }
     return N_-1;
 }
@@ -626,39 +550,37 @@ void Curve::insertKnot(double t, int s, int r)
 
     // load new knot vector
     Eigen::ArrayXd UQ(mp+s*r);
-    for (int i=0; i<=k+p_; i++) UQ(i)=T_(i);
-    for (int i=1; i<=r; i++) UQ(k+p_+i)=t;
-    for (int i=k+p_+1; i<mp; i++) UQ(i+r) = T_(i);
-
-    Eigen::VectorXd test = UQ;
+    UQ.head(k+1) = T_.head(k+1);
+    UQ.segment(k+1, r) = Eigen::ArrayXd::Ones(r) * t;
+    UQ.tail(mp-k-1) = T_.tail(mp-k-1);
 
     // save unaltered control points
     Eigen::MatrixX3d PQ(nq, 3), Rw(p_+1, 3);
-    for (uint i=0; i<=k; i++) PQ.row(i) = weighted_control_points_.row(i);
-    for (uint i=k+p_-s; i<N_; i++) PQ.row(i+r) = weighted_control_points_.row(i);
-    for (uint i=0; i<=p_-s; i++) Rw.row(i) = weighted_control_points_.row(k+i);
+    PQ.topRows(k-p_+1) = weighted_control_points_.topRows(k-p_+1);
+    PQ.middleRows(k-s+r, N_-k+s) = weighted_control_points_.bottomRows(N_-k+s);
+    Rw.topRows(p_-s+1) = weighted_control_points_.middleRows(k-p_, p_-s+1);
 
     int L = 1;
     for (int j=1; j<=r; j++) /* Insert the knot r times */
     {
-        L = k+j;
+        L = k-p_+j;
         for (uint i=0; i<=p_-j-s; i++)
         {
-            double alpha = (t-T_(L+i))/(T_(i+k+p_+1)-T_(L+i));
+            double alpha = (t-T_(L+i))/(T_(i+k+1)-T_(L+i));
             Rw.row(i) = alpha*Rw.row(i+1) + (1.0-alpha)*Rw.row(i);
         }
         PQ.row(L) = Rw.row(0);
-        PQ.row(k+p_+r-j-s) = Rw.row(p_-j-s);
+        PQ.row(k+r-j-s) = Rw.row(p_-j-s);
     }
 
     // load remaining control points
-    for(int i=L+1; i<k+p_-s; i++)
+    for(int i=L+1; i<k-s; i++)
         PQ.row(i) = Rw.row(i-L);
 
     T_ = UQ;
     weighted_control_points_ = PQ;
 
-    spans.emplace_back(new Span(weighted_control_points_.middleRows(N_-1+r-p_, p_+1),
+    spans.emplace_back(new Span(weighted_control_points_.middleRows(N_+r-p_-1, p_+1),
                        T_.segment(N_+r-p_, 2*p_),
                        T_(N_+r-1), T_(N_+r), p_));
 
@@ -695,7 +617,7 @@ void Curve::appendPoint(Point point)
     resetCache();
 }
 
-Curve::Span *Curve::getKnotSpan(double t) const
+Span *Curve::getKnotSpan(double t) const
 {
     for (int i=0; i<spans.size(); i++) {
         if (spans[i]->contains(t)) return spans[i];
