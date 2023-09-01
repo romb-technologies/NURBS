@@ -191,6 +191,8 @@ public:
    */
   double projectPoint(const Point& point) const;
 
+  PointVector intersections(const Curve& curve) const;
+
   /*!
    * \brief Get the weight of the control point at index idx
    * \param idx Weight index
@@ -243,7 +245,9 @@ public:
    * \param s Multiplicity of knot
    * \param r Number of insertions
    */
-  void insertKnot(double t, int s, int r);
+  void insertKnot(double t, int r);
+
+  void splitCurve(double t);
 
 protected:
   /*!
@@ -272,6 +276,7 @@ private:
 
   int getKnotSpanIndex(double t) const;
   Span *getKnotSpan(double t) const;
+  int getKnotMultiplicity(double t);
 };
 
 }

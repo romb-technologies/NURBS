@@ -34,7 +34,7 @@ MainWindow::MainWindow(QWidget* parent)
   qCurve* curve1 = new qCurve(cp1 * 5);
   qCurve* curve2 = new qCurve(cp2 * 5);
 
-  curve2->insertKnot(0.4, 1, 1);
+  curve2->insertKnot(0.4, 2);
   curve1->appendPoint({600, 1000});
 
   scene->addItem(curve1);

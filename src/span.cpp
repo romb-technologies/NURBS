@@ -34,36 +34,41 @@ void Span::update()
     // generate basis function
     Eigen::MatrixXd m(1, 1); m<<1;
 
-    static const int i = p_-1;
-    for (int k=2; k<=p_+1; k++)
-    {
-        Eigen::MatrixXd m1(k, k-1),
-                m2 = Eigen::MatrixXd::Zero(k-1, k),
-                m3(k, k-1),
-                m4 = Eigen::MatrixXd::Zero(k-1, k);
+    if (start_t != end_t) {
+        static const int i = p_-1;
+        for (int k=2; k<=p_+1; k++)
+        {
+            Eigen::MatrixXd m1(k, k-1),
+                    m2 = Eigen::MatrixXd::Zero(k-1, k),
+                    m3(k, k-1),
+                    m4 = Eigen::MatrixXd::Zero(k-1, k);
 
-        m1 << m, Eigen::MatrixXd::Zero(1, k-1);
-        m3 << Eigen::MatrixXd::Zero(1, k-1), m;
+            m1 << m, Eigen::MatrixXd::Zero(1, k-1);
+            m3 << Eigen::MatrixXd::Zero(1, k-1), m;
 
-        Eigen::ArrayXd
-                d0 = Eigen::ArrayXd::Constant(k-1, start_t),
-                d1 = Eigen::ArrayXd::Constant(k-1, end_t - start_t),
-                ddwn = Eigen::ArrayXd::Zero(k-1);
+            Eigen::ArrayXd
+                    d0 = Eigen::ArrayXd::Constant(k-1, start_t),
+                    d1 = Eigen::ArrayXd::Constant(k-1, end_t - start_t),
+                    ddwn = Eigen::ArrayXd::Zero(k-1);
 
-        ddwn = knots.segment(i+1, k-1) - knots.segment(i-k+2, k-1);
-        d0 -= knots.segment(i-k+2, k-1);
+            ddwn = knots.segment(i+1, k-1) - knots.segment(i-k+2, k-1);
+            d0 -= knots.segment(i-k+2, k-1);
 
-        d0 /= ddwn;
-        d1 /= ddwn;
+            d0 /= ddwn;
+            d1 /= ddwn;
 
-        m2.diagonal() = 1 - d0;
-        m2.diagonal(1) = d0;
+            m2.diagonal() = 1 - d0;
+            m2.diagonal(1) = d0;
 
-        m4.diagonal() = -d1;
-        m4.diagonal(1) = d1;
+            m4.diagonal() = -d1;
+            m4.diagonal(1) = d1;
 
-        m = (m1*m2)+(m3*m4);
+            m = (m1*m2)+(m3*m4);
+        }
+    } else {
+        m = Eigen::MatrixXd::Zero(p_+1, p_+1);
     }
+
     basis_function_ = m;
 
     updateControlPoints();
@@ -76,3 +81,5 @@ void Span::updateControlPoints()
     cached_v_bf = basis_function_ * wpoints.leftCols<2>();
     cached_w_bf = basis_function_ * wpoints.col(2);
 }
+
+

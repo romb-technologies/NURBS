@@ -439,6 +439,10 @@ double Curve::projectPoint(const Point &point) const
 
     for (int i=0; i<spans.size(); i++) {
         Span *sp = spans[i];
+
+        if (sp->start_t == sp->end_t)
+            continue;
+
         Eigen::MatrixX2d
                 p1 = Eigen::MatrixXd::Zero(p_+1, 2);
 
@@ -472,6 +476,88 @@ double Curve::projectPoint(const Point &point) const
 
 
     return min_point.first;
+}
+
+PointVector Curve::intersections(const Curve& curve) const
+{
+  PointVector intersections;
+//  auto addIntersection = [&intersections](Point new_point) {
+//    // check if not already found, and add new point
+//    if (std::none_of(intersections.begin(), intersections.end(),
+//                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
+//      intersections.emplace_back(std::move(new_point));
+//  };
+
+//  std::vector<std::pair<Eigen::MatrixX2d, Eigen::MatrixX2d>> subcurve_pairs;
+
+//  if (this != &curve)
+//    subcurve_pairs.emplace_back(weighted_control_points_, weighted_control_points_);
+//  else
+//  {
+//    // for self intersections divide curve into subcurves at extrema
+//    auto t = extrema();
+//    std::sort(t.begin(), t.end());
+//    std::vector<Eigen::MatrixX2d> subcurves;
+//    subcurves.emplace_back(weighted_control_points_);
+//    for (unsigned k = 0; k < t.size(); k++)
+//    {
+//      Eigen::MatrixX2d new_cp = std::move(subcurves.back());
+//      subcurves.pop_back();
+//      subcurves.emplace_back(splittingCoeffsLeft(N_, t[k] - _epsilon / 2) * new_cp);
+//      subcurves.emplace_back(splittingCoeffsRight(N_, t[k] + _epsilon / 2) * new_cp);
+
+//#if __cpp_init_captures
+//      std::for_each(t.begin() + k + 1, t.end(), [t = t[k]](double& x) { x = (x - t) / (1 - t); });
+//#else
+//      std::for_each(t.begin() + k + 1, t.end(), [&t, k](double& x) { x = (x - t[k]) / (1 - t[k]); });
+//#endif
+//    }
+
+//    // create all pairs of subcurves
+//    for (unsigned k = 0; k < subcurves.size(); k++)
+//      for (unsigned i = k + 1; i < subcurves.size(); i++)
+//        subcurve_pairs.emplace_back(subcurves[k], subcurves[i]);
+//  }
+
+//  while (!subcurve_pairs.empty())
+//  {
+//#if __cpp_structured_bindings
+//    auto [cp_a, cp_b] = std::move(subcurve_pairs.back());
+//#else
+//    Eigen::MatrixX2d cp_a, cp_b;
+//    std::tie(cp_a, cp_b) = std::move(subcurve_pairs.back());
+//#endif
+//    subcurve_pairs.pop_back();
+
+//    BoundingBox bbox1(Point(cp_a.col(0).minCoeff(), cp_a.col(1).minCoeff()),
+//                      Point(cp_a.col(0).maxCoeff(), cp_a.col(1).maxCoeff()));
+//    BoundingBox bbox2(Point(cp_b.col(0).minCoeff(), cp_b.col(1).minCoeff()),
+//                      Point(cp_b.col(0).maxCoeff(), cp_b.col(1).maxCoeff()));
+
+//    if (!bbox1.intersects(bbox2))
+//      ; // no intersection
+//    else if (bbox1.diagonal().norm() < _epsilon)
+//      addIntersection(bbox1.center());
+//    else if (bbox2.diagonal().norm() < _epsilon)
+//      addIntersection(bbox2.center());
+//    else
+//    {
+//      // intersection exists, but segments are still too large
+//      // - divide both segments in half
+//      // - insert all combinations for next iteration
+//      // - last pair is one where both subcurves have smallest t ranges
+//      Eigen::MatrixX2d subcurve_a_1(splittingCoeffsRight(N_) * cp_a);
+//      Eigen::MatrixX2d subcurve_a_2(splittingCoeffsLeft(N_) * cp_a);
+//      Eigen::MatrixX2d subcurve_b_1(splittingCoeffsRight(cp_b.rows()) * cp_b);
+//      Eigen::MatrixX2d subcurve_b_2(splittingCoeffsLeft(cp_b.rows()) * cp_b);
+//      subcurve_pairs.emplace_back(subcurve_a_1, subcurve_b_1);
+//      subcurve_pairs.emplace_back(subcurve_a_2, std::move(subcurve_b_1));
+//      subcurve_pairs.emplace_back(std::move(subcurve_a_1), subcurve_b_2);
+//      subcurve_pairs.emplace_back(std::move(subcurve_a_2), std::move(subcurve_b_2));
+//    }
+//  }
+
+  return intersections;
 }
 
 
@@ -542,48 +628,59 @@ int Curve::getKnotSpanIndex(double t) const
     return N_-1;
 }
 
-void Curve::insertKnot(double t, int s, int r)
+int Curve::getKnotMultiplicity(double t) {
+    return (T_ == t).count();
+}
+
+void Curve::insertKnot(double t, int r)
 {
     int mp = T_.rows();
     int nq = N_ + r;
-    int k = getKnotSpanIndex(t);
 
-    // load new knot vector
-    Eigen::ArrayXd UQ(mp+s*r);
-    UQ.head(k+1) = T_.head(k+1);
-    UQ.segment(k+1, r) = Eigen::ArrayXd::Ones(r) * t;
-    UQ.tail(mp-k-1) = T_.tail(mp-k-1);
+    int s = getKnotMultiplicity(t);
+    int k = getKnotSpanIndex(t);
+    Span* sp = spans[k-p_];
+
+    // create new knot vector
+    Eigen::ArrayXd T_new(mp+r);
+    T_new.head(k+1) = T_.head(k+1);
+    T_new.segment(k+1, r) = Eigen::ArrayXd::Ones(r) * t;
+    T_new.tail(mp-k-1) = T_.tail(mp-k-1);
 
     // save unaltered control points
-    Eigen::MatrixX3d PQ(nq, 3), Rw(p_+1, 3);
-    PQ.topRows(k-p_+1) = weighted_control_points_.topRows(k-p_+1);
-    PQ.middleRows(k-s+r, N_-k+s) = weighted_control_points_.bottomRows(N_-k+s);
-    Rw.topRows(p_-s+1) = weighted_control_points_.middleRows(k-p_, p_-s+1);
+    Eigen::MatrixX3d wpoints_new(nq, 3);
+    wpoints_new.topRows(k-p_+1) = weighted_control_points_.topRows(k-p_+1);
+    wpoints_new.bottomRows(N_-k+s) = weighted_control_points_.bottomRows(N_-k+s);
 
-    int L = 1;
+    //setup new control points
+    Eigen::MatrixX3d wpoints_segment(sp->wpoints.topRows(p_-s+1));
+    Eigen::VectorXd t_segment(sp->knots);
+
     for (int j=1; j<=r; j++) /* Insert the knot r times */
     {
-        L = k-p_+j;
-        for (uint i=0; i<=p_-j-s; i++)
+        for (int i=0; i<=(int)p_-j-s; i++)
         {
-            double alpha = (t-T_(L+i))/(T_(i+k+1)-T_(L+i));
-            Rw.row(i) = alpha*Rw.row(i+1) + (1.0-alpha)*Rw.row(i);
+            double alpha = (t-t_segment(i+j-1))/(t_segment(i+p_)-t_segment(i+j-1));
+            wpoints_segment.row(i) = alpha*wpoints_segment.row(i+1) + (1.0-alpha)*wpoints_segment.row(i);
         }
-        PQ.row(L) = Rw.row(0);
-        PQ.row(k+r-j-s) = Rw.row(p_-j-s);
+        wpoints_new.row(k-(int)p_+j) = wpoints_segment.row(0);
+        wpoints_new.row(k+r-j-s) = wpoints_segment.row((int)p_-j-s);
     }
 
     // load remaining control points
-    for(int i=L+1; i<k-s; i++)
-        PQ.row(i) = Rw.row(i-L);
+    for (int i=k-p_+r+1; i<k-s; i++)
+        wpoints_new.row(i) = wpoints_segment.row(i-k+p_-r);
 
-    T_ = UQ;
-    weighted_control_points_ = PQ;
+    T_ = T_new;
+    weighted_control_points_ = wpoints_new;
 
-    spans.emplace_back(new Span(weighted_control_points_.middleRows(N_+r-p_-1, p_+1),
-                       T_.segment(N_+r-p_, 2*p_),
-                       T_(N_+r-1), T_(N_+r), p_));
+    for (int i=0; i<r; i++) {
+        spans.emplace_back(new Span(weighted_control_points_.middleRows(nq-(p_+1), p_+1),
+                           T_.segment(nq-p_, 2*p_),
+                           T_(nq-1), T_(nq), p_));
+    }
 
+    // reassign spans
     for (int i=0; i<spans.size(); i++) {
         new (&(spans[i]->wpoints)) Eigen::Ref<Eigen::MatrixX3d> {weighted_control_points_.middleRows(i, p_+1)};
         new (&(spans[i]->knots)) Eigen::Ref<Eigen::VectorXd> {T_.segment(i+1, 2*p_)};
@@ -615,6 +712,11 @@ void Curve::appendPoint(Point point)
                        T_(N_), T_(N_+1), p_));
 
     resetCache();
+}
+
+void Curve::splitCurve(double t)
+{
+    insertKnot(t, 1);
 }
 
 Span *Curve::getKnotSpan(double t) const
