@@ -34,16 +34,24 @@ MainWindow::MainWindow(QWidget* parent)
   qCurve* curve1 = new qCurve(cp1 * 5);
   qCurve* curve2 = new qCurve(cp2 * 5);
 
-  curve2->insertKnot(0.4, 2);
+//  curve2->insertKnot(0.4, 2);
   curve1->appendPoint({600, 1000});
 
   scene->addItem(curve1);
-  scene->addItem(curve2);
+//  scene->addItem(curve2);
+
+  auto split = curve2->splitCurve(0.4);
+  qCurve* c1 = new qCurve(split.first);
+  qCurve* c2 = new qCurve(split.second);
+  scene->addItem(c1);
+  scene->addItem(c2);
 
   activeCurve = curve2;
 
   new CurveListWidgetItem(curve1, ui->curveList);
-  new CurveListWidgetItem(curve2, ui->curveList);
+//  new CurveListWidgetItem(curve2, ui->curveList);
+  new CurveListWidgetItem(c1, ui->curveList);
+  new CurveListWidgetItem(c2, ui->curveList);
 
   connect(ui->curveList,
           &QListWidget::currentItemChanged,
@@ -60,27 +68,27 @@ MainWindow::MainWindow(QWidget* parent)
 
 
   // testiranje
-  qCurve c = qCurve(cp1*5);
+//  qCurve c = qCurve(cp1*5);
 
-  // cached basis fucntions
-  auto start = std::chrono::steady_clock::now();
-  for(int k = 0; k < 1000; k++)
-      {
-      volatile auto asd = c.valueAt(0.5);
-  }
-  auto end = std::chrono::steady_clock::now();
-  std::chrono::duration<double> elapsed_seconds = end - start;
-  std::cout << "cached basis functions: " << elapsed_seconds.count() << "\n";
+  // cached basis functions
+//  auto start = std::chrono::steady_clock::now();
+//  for(int k = 0; k < 1000; k++)
+//      {
+//      volatile auto asd = c.valueAt(0.5);
+//  }
+//  auto end = std::chrono::steady_clock::now();
+//  std::chrono::duration<double> elapsed_seconds = end - start;
+//  std::cout << "cached basis functions: " << elapsed_seconds.count() << "\n";
 
-  start = std::chrono::steady_clock::now();
-  // cached basis functions (again)
-  for(int k = 0; k < 1000; k++)
-      {
-      volatile auto asd = c.valueAt(0.5);
-  }
-  end = std::chrono::steady_clock::now();
-  elapsed_seconds = end - start;
-  std::cout << "cached basis functions (again): " << elapsed_seconds.count() << "\n";
+//  start = std::chrono::steady_clock::now();
+//  // cached basis functions (again)
+//  for(int k = 0; k < 1000; k++)
+//      {
+//      volatile auto asd = c.valueAt(0.5);
+//  }
+//  end = std::chrono::steady_clock::now();
+//  elapsed_seconds = end - start;
+//  std::cout << "cached basis functions (again): " << elapsed_seconds.count() << "\n";
 
 
   ui->graphicsView->centerOn(scene->itemsBoundingRect().center());

@@ -142,6 +142,25 @@ Curve::Curve(const PointVector& points)
     }
 }
 
+Curve::Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p)
+    : N_(wpoints.rows())
+    , p_(p)
+    , T_(N_+p_+1)
+    , weighted_control_points_(wpoints)
+{
+    T_ << knotvector;
+    for (int i=0; i<N_+p_+1 - knotvector.rows(); i++)
+        T_ << 1.0;
+
+    //spans
+    for (uint i=0; i<N_-p_; i++) {
+        spans.emplace_back(new Span(weighted_control_points_.middleRows(i, p_+1),
+                           T_.segment(i+1, 2*p_),
+                           T_(i+p_), T_(i+p_+1), p_));
+    }
+
+}
+
 Curve::Curve(const Curve& curve)
     : Curve(curve.weighted_control_points_.leftCols<2>()) {}
 
@@ -656,7 +675,7 @@ void Curve::insertKnot(double t, int r)
     Eigen::MatrixX3d wpoints_segment(sp->wpoints.topRows(p_-s+1));
     Eigen::VectorXd t_segment(sp->knots);
 
-    for (int j=1; j<=r; j++) /* Insert the knot r times */
+    for (int j=1; j<=r && j+s<=p_; j++) /* Insert the knot r times */
     {
         for (int i=0; i<=(int)p_-j-s; i++)
         {
@@ -714,9 +733,21 @@ void Curve::appendPoint(Point point)
     resetCache();
 }
 
-void Curve::splitCurve(double t)
+std::pair<Curve, Curve> Curve::splitCurve(double t)
 {
-    insertKnot(t, 1);
+    Curve split(*this);
+
+    int k = split.getKnotSpanIndex(t);
+    split.insertKnot(t, p_+1);
+
+    int n1 = k+1, n2 = split.N_ - n1;
+    Curve c1(split.weighted_control_points_.topRows(n1),
+             split.T_.head(n1+p_+1),
+             p_);
+    Curve c2(split.weighted_control_points_.bottomRows(n2),
+             split.T_.tail(n2+p_+1),
+             p_);
+    return {c1, c2};
 }
 
 Span *Curve::getKnotSpan(double t) const

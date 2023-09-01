@@ -26,6 +26,15 @@ public:
    * \param points A vector of control points that define the curve
    */
   Curve(const PointVector& points);
+
+  /*!
+   * \brief Create a NURBS curve
+   * \param points Nx3 matrix where each row is one of N weighted control points that define the curve
+   * \param knotvector Array of knots in ascending order, must be of length N+p+1
+   * \param p Order of the curve
+   */
+  Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p=2);
+
   Curve(const Curve& curve);  
   Curve(Curve&&) = default;
 
@@ -247,7 +256,7 @@ public:
    */
   void insertKnot(double t, int r);
 
-  void splitCurve(double t);
+  std::pair<Curve, Curve> splitCurve(double t);
 
 protected:
   /*!
