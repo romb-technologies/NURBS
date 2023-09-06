@@ -613,7 +613,7 @@ void Curve::setKnot(int idx, double value) {
     }
 }
 
-double Curve::knot(int idx)
+double Curve::knot(int idx) const
 {
     return T_(idx);
 }
@@ -641,15 +641,14 @@ void Curve::setWeight(double w, unsigned idx)
 
 int Curve::getKnotSpanIndex(double t) const
 {
-    int span;
-    for (span=p_; span<N_; span++) {
+    for (int span=p_; span<N_; span++) {
         if (t < T_(span+1))
             return span;
     }
     return N_-1;
 }
 
-int Curve::getKnotMultiplicity(double t) {
+int Curve::getKnotMultiplicity(double t) const {
     return (T_ == t).count();
 }
 
@@ -658,7 +657,7 @@ void Curve::insertKnot(double t, int r)
     int s = getKnotMultiplicity(t);
     int k = getKnotSpanIndex(t);
     Span* sp = spans[k-p_];
-//    r = std::min(r, int(p_-s));
+    r = std::min(r, int(p_+1-s));
 
     int mp = T_.rows();
     int nq = N_ + r;
@@ -740,8 +739,8 @@ std::pair<Curve, Curve> Curve::splitCurve(double t) const
 {
     Curve split(*this);
 
-    int k = split.getKnotSpanIndex(t);
     split.insertKnot(t, p_+1);
+    int k = split.getKnotSpanIndex(t) - (p_+1);
 
     int n1 = k+1, n2 = split.N_ - n1;
     Curve c1(split.weighted_control_points_.topRows(n1),

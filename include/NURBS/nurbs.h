@@ -240,7 +240,7 @@ public:
    * \param idx Knot index
    * \return Knot value
    */
-  double knot(int idx);
+  double knot(int idx) const;
 
   /*!
    * \brief Append a new control point to the end of the curve
@@ -287,7 +287,7 @@ private:
 
   int getKnotSpanIndex(double t) const;
   Span *getKnotSpan(double t) const;
-  int getKnotMultiplicity(double t);
+  int getKnotMultiplicity(double t) const;
 };
 
 }
