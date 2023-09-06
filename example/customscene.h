@@ -21,7 +21,7 @@ private:
   bool update_cp = false;
   std::pair<QGraphicsItem*, uint> cp_to_update;
   bool update_weights = false;
-  double last_weight;
+  double current_weight;
 
 protected:
   void keyPressEvent(QKeyEvent* keyEvent) Q_DECL_OVERRIDE;

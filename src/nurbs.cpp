@@ -150,7 +150,9 @@ Curve::Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p)
 {
     T_ << knotvector;
     for (int i=0; i<N_+p_+1 - knotvector.rows(); i++)
-        T_ << 1.0;
+        T_ << T_.tail<1>();
+
+    normalizeKnotVector();
 
     //spans
     for (uint i=0; i<N_-p_; i++) {
@@ -162,7 +164,7 @@ Curve::Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p)
 }
 
 Curve::Curve(const Curve& curve)
-    : Curve(curve.weighted_control_points_.leftCols<2>()) {}
+    : Curve(curve.weighted_control_points_, curve.T_, curve.p_) {}
 
 Curve& Curve::operator=(const Curve& curve)
 {
@@ -653,12 +655,13 @@ int Curve::getKnotMultiplicity(double t) {
 
 void Curve::insertKnot(double t, int r)
 {
-    int mp = T_.rows();
-    int nq = N_ + r;
-
     int s = getKnotMultiplicity(t);
     int k = getKnotSpanIndex(t);
     Span* sp = spans[k-p_];
+//    r = std::min(r, int(p_-s));
+
+    int mp = T_.rows();
+    int nq = N_ + r;
 
     // create new knot vector
     Eigen::ArrayXd T_new(mp+r);
@@ -733,7 +736,7 @@ void Curve::appendPoint(Point point)
     resetCache();
 }
 
-std::pair<Curve, Curve> Curve::splitCurve(double t)
+std::pair<Curve, Curve> Curve::splitCurve(double t) const
 {
     Curve split(*this);
 
@@ -748,6 +751,22 @@ std::pair<Curve, Curve> Curve::splitCurve(double t)
              split.T_.tail(n2+p_+1),
              p_);
     return {c1, c2};
+}
+
+std::vector<Curve> Curve::piecewiseBezier() const
+{
+    for (int i=p_; i<N_; i++) {
+
+    }
+}
+
+void Curve::normalizeKnotVector()
+{
+    T_ -= T_(0);
+    T_ /= T_(T_.rows()-1);
+    for (int i=0; i<spans.size(); i++) {
+        spans[i]->update();
+    }
 }
 
 Span *Curve::getKnotSpan(double t) const

@@ -34,6 +34,7 @@ private:
   void displayWeights(qCurve *curve);
   void onUpdateKnot();
   void onUpdateWeight();
+  qCurve *addCurveToScene(NURBS::Curve c);
 };
 
 #endif // MAINWINDOW_H

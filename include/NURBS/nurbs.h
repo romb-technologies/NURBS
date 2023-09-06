@@ -256,7 +256,9 @@ public:
    */
   void insertKnot(double t, int r);
 
-  std::pair<Curve, Curve> splitCurve(double t);
+  std::pair<Curve, Curve> splitCurve(double t) const;
+  std::vector<Curve> piecewiseBezier() const;
+  void normalizeKnotVector();
 
 protected:
   /*!
