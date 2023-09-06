@@ -754,9 +754,15 @@ std::pair<Curve, Curve> Curve::splitCurve(double t) const
 
 std::vector<Curve> Curve::piecewiseBezier() const
 {
-    for (int i=p_; i<N_; i++) {
-
+    Curve temp(*this);
+    std::vector<Curve> out;
+    while (temp.N_ > p_+1) {
+        auto pair = temp.splitCurve(temp.T_(p_+1));
+        out.emplace_back(pair.first);
+        temp = pair.second;
     }
+    out.emplace_back(temp);
+    return out;
 }
 
 void Curve::normalizeKnotVector()

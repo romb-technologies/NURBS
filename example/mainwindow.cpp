@@ -36,13 +36,16 @@ MainWindow::MainWindow(QWidget* parent)
   NURBS::Curve curve2(cp2 * 5);
 
   curve1.appendPoint({600, 1000});
-  curve2.insertKnot(0.4, 4);
   auto split = curve2.splitCurve(0.4);
+  auto beziers = curve2.piecewiseBezier();
 
   addCurveToScene(curve1);
 //  addCurveToScene(curve2);
-  addCurveToScene(split.first);
-  addCurveToScene(split.second);
+//  addCurveToScene(split.first);
+//  addCurveToScene(split.second);
+  for (NURBS::Curve b: beziers) {
+      addCurveToScene(b);
+  }
 
   // init knot vector and weight display
   connect(ui->curveList,
