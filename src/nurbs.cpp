@@ -499,84 +499,85 @@ double Curve::projectPoint(const Point &point) const
     return min_point.first;
 }
 
+//todo: fix
 PointVector Curve::intersections(const Curve& curve) const
 {
   PointVector intersections;
-//  auto addIntersection = [&intersections](Point new_point) {
-//    // check if not already found, and add new point
-//    if (std::none_of(intersections.begin(), intersections.end(),
-//                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
-//      intersections.emplace_back(std::move(new_point));
-//  };
+  auto addIntersection = [&intersections](Point new_point) {
+    // check if not already found, and add new point
+    if (std::none_of(intersections.begin(), intersections.end(),
+                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
+      intersections.emplace_back(std::move(new_point));
+  };
 
-//  std::vector<std::pair<Eigen::MatrixX2d, Eigen::MatrixX2d>> subcurve_pairs;
+  std::vector<std::pair<Curve, Curve>> subcurve_pairs;
 
-//  if (this != &curve)
-//    subcurve_pairs.emplace_back(weighted_control_points_, weighted_control_points_);
-//  else
-//  {
-//    // for self intersections divide curve into subcurves at extrema
-//    auto t = extrema();
-//    std::sort(t.begin(), t.end());
-//    std::vector<Eigen::MatrixX2d> subcurves;
-//    subcurves.emplace_back(weighted_control_points_);
-//    for (unsigned k = 0; k < t.size(); k++)
-//    {
-//      Eigen::MatrixX2d new_cp = std::move(subcurves.back());
-//      subcurves.pop_back();
-//      subcurves.emplace_back(splittingCoeffsLeft(N_, t[k] - _epsilon / 2) * new_cp);
-//      subcurves.emplace_back(splittingCoeffsRight(N_, t[k] + _epsilon / 2) * new_cp);
+  if (this != &curve)
+    subcurve_pairs.emplace_back(*this, *this);
+  else
+  {
+    // for self intersections divide curve into subcurves at extrema
+    auto t = extrema();
+    std::sort(t.begin(), t.end());
+    std::vector<Curve> subcurves;
+    subcurves.emplace_back(*this);
+    for (unsigned k = 0; k < t.size(); k++)
+    {
+      Curve new_curve = std::move(subcurves.back());
+      subcurves.pop_back();
+      subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).first);
+      subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).second);
 
-//#if __cpp_init_captures
-//      std::for_each(t.begin() + k + 1, t.end(), [t = t[k]](double& x) { x = (x - t) / (1 - t); });
-//#else
-//      std::for_each(t.begin() + k + 1, t.end(), [&t, k](double& x) { x = (x - t[k]) / (1 - t[k]); });
-//#endif
-//    }
+#if __cpp_init_captures
+      std::for_each(t.begin() + k + 1,
+                    t.end(),
+                    [t = t[k]](double& x) {
+                        x = (x - t) / (1 - t);
+      });
+#else
+      std::for_each(t.begin() + k + 1, t.end(), [&t, k](double& x) { x = (x - t[k]) / (1 - t[k]); });
+#endif
+    }
 
-//    // create all pairs of subcurves
-//    for (unsigned k = 0; k < subcurves.size(); k++)
-//      for (unsigned i = k + 1; i < subcurves.size(); i++)
-//        subcurve_pairs.emplace_back(subcurves[k], subcurves[i]);
-//  }
+    // create all pairs of subcurves
+    for (unsigned k = 0; k < subcurves.size(); k++)
+      for (unsigned i = k + 1; i < subcurves.size(); i++)
+        subcurve_pairs.emplace_back(subcurves[k], subcurves[i]);
+  }
 
-//  while (!subcurve_pairs.empty())
-//  {
-//#if __cpp_structured_bindings
-//    auto [cp_a, cp_b] = std::move(subcurve_pairs.back());
-//#else
-//    Eigen::MatrixX2d cp_a, cp_b;
-//    std::tie(cp_a, cp_b) = std::move(subcurve_pairs.back());
-//#endif
-//    subcurve_pairs.pop_back();
+  while (!subcurve_pairs.empty())
+  {
+#if __cpp_structured_bindings
+    auto [cp_a, cp_b] = std::move(subcurve_pairs.back());
+#else
+    Eigen::MatrixX2d cp_a, cp_b;
+    std::tie(cp_a, cp_b) = std::move(subcurve_pairs.back());
+#endif
+    subcurve_pairs.pop_back();
 
-//    BoundingBox bbox1(Point(cp_a.col(0).minCoeff(), cp_a.col(1).minCoeff()),
-//                      Point(cp_a.col(0).maxCoeff(), cp_a.col(1).maxCoeff()));
-//    BoundingBox bbox2(Point(cp_b.col(0).minCoeff(), cp_b.col(1).minCoeff()),
-//                      Point(cp_b.col(0).maxCoeff(), cp_b.col(1).maxCoeff()));
+    BoundingBox bbox1(cp_a.boundingBox());
+    BoundingBox bbox2(cp_b.boundingBox());
 
-//    if (!bbox1.intersects(bbox2))
-//      ; // no intersection
-//    else if (bbox1.diagonal().norm() < _epsilon)
-//      addIntersection(bbox1.center());
-//    else if (bbox2.diagonal().norm() < _epsilon)
-//      addIntersection(bbox2.center());
-//    else
-//    {
-//      // intersection exists, but segments are still too large
-//      // - divide both segments in half
-//      // - insert all combinations for next iteration
-//      // - last pair is one where both subcurves have smallest t ranges
-//      Eigen::MatrixX2d subcurve_a_1(splittingCoeffsRight(N_) * cp_a);
-//      Eigen::MatrixX2d subcurve_a_2(splittingCoeffsLeft(N_) * cp_a);
-//      Eigen::MatrixX2d subcurve_b_1(splittingCoeffsRight(cp_b.rows()) * cp_b);
-//      Eigen::MatrixX2d subcurve_b_2(splittingCoeffsLeft(cp_b.rows()) * cp_b);
-//      subcurve_pairs.emplace_back(subcurve_a_1, subcurve_b_1);
-//      subcurve_pairs.emplace_back(subcurve_a_2, std::move(subcurve_b_1));
-//      subcurve_pairs.emplace_back(std::move(subcurve_a_1), subcurve_b_2);
-//      subcurve_pairs.emplace_back(std::move(subcurve_a_2), std::move(subcurve_b_2));
-//    }
-//  }
+    if (!bbox1.intersects(bbox2))
+      ; // no intersection
+    else if (bbox1.diagonal().norm() < _epsilon)
+      addIntersection(bbox1.center());
+    else if (bbox2.diagonal().norm() < _epsilon)
+      addIntersection(bbox2.center());
+    else
+    {
+      // intersection exists, but segments are still too large
+      // - divide both segments in half
+      // - insert all combinations for next iteration
+      // - last pair is one where both subcurves have smallest t ranges
+      auto subcurve_a = cp_a.splitCurve(0.5);
+      auto subcurve_b = cp_b.splitCurve(0.5);
+      subcurve_pairs.emplace_back(subcurve_a.first, subcurve_b.first);
+      subcurve_pairs.emplace_back(subcurve_a.second, std::move(subcurve_b.first));
+      subcurve_pairs.emplace_back(std::move(subcurve_a.first), subcurve_b.second);
+      subcurve_pairs.emplace_back(std::move(subcurve_a.second), std::move(subcurve_b.second));
+    }
+  }
 
   return intersections;
 }

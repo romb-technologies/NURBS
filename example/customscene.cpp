@@ -27,6 +27,20 @@ void CustomScene::drawForeground(QPainter* painter, const QRectF& rect)
                         bbox.max().y() - bbox.min().y());
     }
   }
+  if (draw_inter_)
+  {
+    painter->setPen(Qt::red);
+    painter->setBrush(QBrush(Qt::red, Qt::SolidPattern));
+    for (int k = 0; k < items().size(); k++)
+      for (int i = k; i < items().size(); i++)
+      {
+        NURBS::PointVector inter;
+        inter = static_cast<qCurve*>(items()[i])->intersections(*static_cast<qCurve*>(items()[k]));
+
+        for (auto& dot : inter)
+          painter->drawEllipse(QPointF(dot.x(), dot.y()), 3, 3);
+      }
+  }
 }
 
 void CustomScene::keyPressEvent(QKeyEvent* keyEvent)
