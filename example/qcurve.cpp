@@ -7,6 +7,8 @@ void qCurve::setDraw_control_points(bool value) { draw_control_points = value; }
 
 void qCurve::setDraw_curvature_radious(bool value) { draw_curvature_radius = value; }
 
+void qCurve::setDraw_knots(bool value) { draw_knots = value; }
+
 bool qCurve::getDraw_control_points() const { return draw_control_points; }
 
 bool qCurve::getDraw_curvature_radious() const { return draw_curvature_radius; }

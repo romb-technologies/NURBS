@@ -8,15 +8,17 @@
 
 class CustomScene : public QGraphicsScene
 {
+public:
+  bool draw_box_ = true;
+  bool draw_inter_ = false;
+  bool show_projection = false;
 private:
   QGraphicsEllipseItem* dot;
   QGraphicsTextItem* number_display;
   QMap<QGraphicsItem*, QGraphicsLineItem*> line;
   QMap<QGraphicsItem*, QGraphicsLineItem*> tan;
   QMap<QGraphicsItem*, QGraphicsEllipseItem*> byLength;
-  bool draw_box_ = true;
-  bool draw_inter_ = false;
-  bool show_projection = false;
+
   std::pair<qCurve*, double> t_to_update;
   bool update_cp = false;
   std::pair<QGraphicsItem*, uint> cp_to_update;

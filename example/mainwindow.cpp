@@ -58,14 +58,18 @@ MainWindow::MainWindow(QWidget* parent)
   });
   displayKnotVector(activeCurve);
   displayWeights(activeCurve);
+  ui->curveList->setCurrentRow(ui->curveList->count()-1);
 
   ui->graphicsView->centerOn(scene->itemsBoundingRect().center());
 }
 
 qCurve* MainWindow::addCurveToScene(NURBS::Curve c) {
+    static uint counter = 1;
     qCurve* qc = new qCurve(c);
     scene->addItem(qc);
-    new CurveListWidgetItem(qc, ui->curveList);
+    new CurveListWidgetItem(qc,
+                            QString("Curve %1").arg(QString::number(counter++)),
+                            ui->curveList);
     activeCurve = qc;
     return qc;
 }
@@ -128,3 +132,5 @@ void MainWindow::displayWeights(qCurve* curve) {
 }
 
 MainWindow::~MainWindow() { delete ui; }
+
+

@@ -1,5 +1,5 @@
 #include "curvelistwidgetitem.h"
 
-CurveListWidgetItem::CurveListWidgetItem(qCurve *c, QListWidget *parent):
-    QListWidgetItem("Curve", parent),
+CurveListWidgetItem::CurveListWidgetItem(qCurve *c, QString name, QListWidget *parent):
+    QListWidgetItem(name, parent),
     curve(c) {}

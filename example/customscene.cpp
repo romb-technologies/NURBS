@@ -68,14 +68,6 @@ Key Down - lower the order (of selected curves)\n\
 Key + - join multiple curves into polycurve\n\
 Delete - delete curve/polycurve");
   }
-
-  if (keyEvent->key() == Qt::Key_P)
-  {
-    for (auto&& curve : items())
-      if (is_curve)
-        c_curve->setDraw_control_points(!c_curve->getDraw_control_points());
-    update();
-  }
 }
 
 void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
@@ -117,7 +109,7 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
             auto pt = c_curve->valueAt(t);
             if ((pt - p).norm() < 10)
               curve->setSelected(true);
-//            update();
+            update();
           }
         }
         else

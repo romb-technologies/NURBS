@@ -26,8 +26,10 @@ public:
   void prepareGeometryChange() { QGraphicsItem::prepareGeometryChange(); }
   void setDraw_control_points(bool value);
   void setDraw_curvature_radious(bool value);
+  void setDraw_knots(bool value);
   bool getDraw_control_points() const;
   bool getDraw_curvature_radious() const;
+  bool getDraw_knots() const;
   std::shared_ptr<NURBS::Curve> getSharedPtr();
   bool getLocked() const;
   void setLocked(bool value);

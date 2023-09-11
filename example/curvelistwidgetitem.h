@@ -8,7 +8,7 @@
 class CurveListWidgetItem: public QListWidgetItem
 {
 public:
-    CurveListWidgetItem(qCurve *c, QListWidget* parent);
+    CurveListWidgetItem(qCurve *c, QString name, QListWidget* parent);
     qCurve *curve;
 };
 
