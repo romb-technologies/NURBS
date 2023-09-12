@@ -785,3 +785,12 @@ Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const {
     double u = (t - sp->start_t)/(sp->end_t - sp->start_t);
     return _powSeries(u, p_) * sp->basis_function_;
 }
+
+double Curve::length() const {
+  double out = 0.0;
+  PointVector poly = polyline();
+  for(int i=0; i<poly.size()-1; i++) {
+    out += std::sqrt(pow(poly[i](0)-poly[i+1](0), 2) + pow(poly[i](1)-poly[i+1](1), 2));
+  }
+  return out;
+}

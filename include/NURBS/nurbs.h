@@ -261,6 +261,7 @@ public:
   void normalizeKnotVector();
   Eigen::VectorXd getBasisFunctionsAt(double t) const;
   int getKnotSpanIndex(double t) const;
+  double length() const;
 
 protected:
   /*!

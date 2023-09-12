@@ -62,6 +62,8 @@ MainWindow::MainWindow(QWidget* parent)
   displayWeights(activeCurve);
   ui->curveList->setCurrentRow(ui->curveList->count()-1);
 
+  std::cout << activeCurve->length() << "\n";
+
   ui->graphicsView->centerOn(scene->itemsBoundingRect().center());
 }
 
