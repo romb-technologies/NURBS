@@ -5,6 +5,7 @@
 #include <QDoubleSpinBox>
 #include <QListWidgetItem>
 
+#include "qcustomplot.h"
 #include "customscene.h"
 
 namespace Ui
@@ -48,6 +49,7 @@ private:
   void onUpdateKnot();
   void onUpdateWeight();
   qCurve *addCurveToScene(NURBS::Curve c);
+  void displayKnotVectorGraph(qCurve *curve);
 };
 
 #endif // MAINWINDOW_H

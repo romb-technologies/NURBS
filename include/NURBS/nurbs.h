@@ -259,6 +259,8 @@ public:
   std::pair<Curve, Curve> splitCurve(double t) const;
   std::vector<Curve> piecewiseBezier() const;
   void normalizeKnotVector();
+  Eigen::VectorXd getBasisFunctionsAt(double t) const;
+  int getKnotSpanIndex(double t) const;
 
 protected:
   /*!
@@ -285,7 +287,7 @@ private:
   Eigen::ArrayXd T_;
   mutable std::vector<Span*> spans;
 
-  int getKnotSpanIndex(double t) const;
+
   Span *getKnotSpan(double t) const;
   int getKnotMultiplicity(double t) const;
 };

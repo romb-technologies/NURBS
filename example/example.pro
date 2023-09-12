@@ -1,6 +1,6 @@
 QT       += core widgets
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+greaterThan(QT_MAJOR_VERSION, 4): QT += widgets printsupport
 
 CONFIG += c++17
 
@@ -27,6 +27,7 @@ SOURCES += \
     mainwindow.cpp \
     qcurve.cpp \
     ../src/nurbs.cpp \
+    qcustomplot.cpp \
     qgraphicsviewzoom.cpp
 
 HEADERS += \
@@ -37,6 +38,7 @@ HEADERS += \
     qcurve.h \
     ../include/NURBS/nurbs.h \
     ../include/NURBS/declarations.h \
+    qcustomplot.h \
     qgraphicsviewzoom.h
 
 FORMS += \

@@ -55,8 +55,10 @@ MainWindow::MainWindow(QWidget* parent)
             activeCurve = static_cast<CurveListWidgetItem*>(current)->curve;
             displayKnotVector(activeCurve);
             displayWeights(activeCurve);
+            displayKnotVectorGraph(activeCurve);
   });
   displayKnotVector(activeCurve);
+  displayKnotVectorGraph(activeCurve);
   displayWeights(activeCurve);
   ui->curveList->setCurrentRow(ui->curveList->count()-1);
 
@@ -103,6 +105,7 @@ void MainWindow::displayKnotVector(qCurve *curve) {
                 [this, i, curve](double d){
                         curve->setKnot(i, d);
                         qobject_cast<QDoubleSpinBox*>(sender())->setValue(curve->knot(i));
+                        displayKnotVectorGraph(activeCurve);
                         scene->update();
                 });
     }
@@ -126,9 +129,42 @@ void MainWindow::displayWeights(qCurve* curve) {
                 this,
                 [this, i, curve](double d){
                         curve->setWeight(d, i);
+                        displayKnotVectorGraph(activeCurve);
                         scene->update();
                 });
     }
+}
+
+void MainWindow::displayKnotVectorGraph(qCurve *curve) {
+    // generate some data:
+    std::vector<QVector<double>> x, y;
+    int m = curve->order() + 1;
+    int N = curve->controlPoints().size();
+    double detail = 1000;
+
+    for (int pt=0; pt<N; pt++) {
+        x.emplace_back(QVector<double>(detail+1));
+        y.emplace_back(QVector<double>(detail+1));
+        ui->customPlot->addGraph()->setPen(QPen(QColor(255.0*pt/(N-1), 0, 255.0*(1-pt/(N-1)))));
+      }
+
+    for (int i=0; i<=detail; i++) {
+        Eigen::VectorXd bf = curve->getBasisFunctionsAt(i/detail);
+
+        int sp = curve->getKnotSpanIndex(i/detail)-m+1;
+        for (int pt=0; pt<m; pt++) {
+            x[sp+pt][i] = i/detail;
+            y[sp+pt][i] = bf(pt);
+        }
+      }
+    for (int pt=0; pt<N; pt++)
+      ui->customPlot->graph(pt)->setData(x[pt], y[pt]);
+
+
+    // create graph and assign data to it:
+    ui->customPlot->xAxis->setRange(0, 1);
+    ui->customPlot->yAxis->setRange(0, 1);
+    ui->customPlot->replot();
 }
 
 MainWindow::~MainWindow() { delete ui; }

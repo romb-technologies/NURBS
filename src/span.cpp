@@ -17,7 +17,7 @@ bool Span::contains(double t) const
     if (start_t==end_t)
         return false;
     else
-        return (t >= start_t) && (t <= end_t);
+        return (t >= start_t) && (t < end_t);
 }
 
 Eigen::MatrixXd Span::getBasisFunction() const

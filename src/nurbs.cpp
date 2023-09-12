@@ -392,9 +392,6 @@ std::vector<double> Curve::extrema() const
             Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_+1);
             pb.head(p_) = (sp->cached_w_bf.array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
-            Eigen::RowVectorXd temp(p_+1);
-            temp << 1, 0, 0, 0;
-
             Eigen::MatrixX2d poly(2*p_+1, 2);
             poly.col(0) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(0)) + _multiplyPolynomials(p1.col(0), sp->cached_w_bf);
             poly.col(1) = - _multiplyPolynomials(pb, sp->cached_v_bf.col(1)) + _multiplyPolynomials(p1.col(1), sp->cached_w_bf);
@@ -643,7 +640,7 @@ void Curve::setWeight(double w, unsigned idx)
 int Curve::getKnotSpanIndex(double t) const
 {
     for (int span=p_; span<N_; span++) {
-        if (t < T_(span+1))
+        if (T_(span+1) > t)
             return span;
     }
     return N_-1;
@@ -781,4 +778,10 @@ Span *Curve::getKnotSpan(double t) const
         if (spans[i]->contains(t)) return spans[i];
     }
     return spans.back();
+}
+
+Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const {
+    Span *sp = getKnotSpan(t);
+    double u = (t - sp->start_t)/(sp->end_t - sp->start_t);
+    return _powSeries(u, p_) * sp->basis_function_;
 }
