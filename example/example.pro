@@ -28,7 +28,8 @@ SOURCES += \
     qcurve.cpp \
     ../src/nurbs.cpp \
     qcustomplot.cpp \
-    qgraphicsviewzoom.cpp
+    qgraphicsviewzoom.cpp \
+    qvectorfield.cpp
 
 HEADERS += \
     ../include/NURBS/span.h \
@@ -39,7 +40,8 @@ HEADERS += \
     ../include/NURBS/nurbs.h \
     ../include/NURBS/declarations.h \
     qcustomplot.h \
-    qgraphicsviewzoom.h
+    qgraphicsviewzoom.h \
+    qvectorfield.h
 
 FORMS += \
     mainwindow.ui

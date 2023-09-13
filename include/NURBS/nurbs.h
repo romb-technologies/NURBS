@@ -19,7 +19,7 @@ public:
    * \brief Create a NURBS curve
    * \param points Nx2 matrix where each row is one of N control points that define the curve
    */
-  Curve(Eigen::MatrixX2d points);
+  Curve(Eigen::MatrixX2d points, int p=3);
 
   /*!
    * \brief Create a NURBS curve
@@ -33,7 +33,7 @@ public:
    * \param knotvector Array of knots in ascending order, must be of length N+p+1
    * \param p Order of the curve
    */
-  Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p=2);
+  Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p=3);
 
   Curve(const Curve& curve);  
   Curve(Curve&&) = default;
@@ -262,6 +262,7 @@ public:
   Eigen::VectorXd getBasisFunctionsAt(double t) const;
   int getKnotSpanIndex(double t) const;
   double length() const;
+  double length(double t) const;
 
 protected:
   /*!
@@ -284,6 +285,8 @@ private:
   mutable std::unique_ptr<BoundingBox> cached_bounding_box_;  /*! If generated, stores bounding box for later use */
   mutable std::unique_ptr<PointVector> cached_polyline_;      /*! If generated, stores polyline for later use */
   mutable double cached_polyline_flatness_{};                 /*! Flatness of cached polyline */
+  mutable std::unique_ptr<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
+                                                                        for calculating the length of the curve */
 
   Eigen::ArrayXd T_;
   mutable std::vector<Span*> spans;

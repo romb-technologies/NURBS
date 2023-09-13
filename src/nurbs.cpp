@@ -80,9 +80,9 @@ Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd &poly1, const Eigen::
 
 ///// Curve::Curve
 
-Curve::Curve(Eigen::MatrixX2d points)
+Curve::Curve(Eigen::MatrixX2d points, int p)
     : N_(points.rows())
-    , p_(3)
+    , p_(p)
     , T_(N_+p_+1)
 {
     weighted_control_points_ = Eigen::MatrixX3d(N_, 3);
@@ -780,17 +780,90 @@ Span *Curve::getKnotSpan(double t) const
     return spans.back();
 }
 
-Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const {
+Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const
+{
     Span *sp = getKnotSpan(t);
     double u = (t - sp->start_t)/(sp->end_t - sp->start_t);
     return _powSeries(u, p_) * sp->basis_function_;
 }
 
-double Curve::length() const {
-  double out = 0.0;
-  PointVector poly = polyline();
-  for(int i=0; i<poly.size()-1; i++) {
-    out += std::sqrt(pow(poly[i](0)-poly[i+1](0), 2) + pow(poly[i](1)-poly[i+1](1), 2));
+double Curve::length(double t) const
+{
+  if (t < 0.0 || t > 1.0)
+    throw std::logic_error{"Length can only be calculated for t within [0.0, 1.0] range."};
+
+  auto evaluate_chebyshev = [](double t, const Eigen::VectorXd& coeff) {
+    t = 2 * t - 1;
+    double tn{t}, tn_1{1}, res{coeff(0) + coeff(1) * t};
+    for (unsigned k = 2; k < coeff.size(); k++)
+    {
+      std::swap(tn_1, tn);
+      tn = 2 * t * tn_1 - tn;
+      res += coeff(k) * tn;
+    }
+    return res;
+  };
+
+  if (!cached_chebyshev_coeffs_)
+  {
+    constexpr unsigned START_LOG_N = 10;
+    unsigned log_n = START_LOG_N - 1;
+    unsigned n = _exp2(START_LOG_N - 1);
+
+    Eigen::VectorXd derivative_cache(2 * n + 1);
+    auto updateDerivativeCache = [this, &derivative_cache](double n) {
+      derivative_cache.conservativeResize(n + 1);
+      derivative_cache.tail(n / 2) =
+          ((1 + Eigen::cos(Eigen::ArrayXd::LinSpaced(n / 2, 1, n - 1) * M_PI / n)) / 2).unaryExpr([this](double t) {
+            return derivativeAt(t).norm();
+          });
+    };
+
+    derivative_cache.head(2) << derivativeAt(1.0).norm(), derivativeAt(0.0).norm();
+    for (unsigned k = 2; k <= n; k *= 2)
+      updateDerivativeCache(k);
+
+    Eigen::VectorXd chebyshev;
+    Eigen::FFT<double> fft;
+    Eigen::VectorXcd fft_out;
+    do
+    {
+      n *= 2;
+      log_n++;
+      updateDerivativeCache(n);
+
+      unsigned N = 2 * n;
+      Eigen::VectorXd coeff(N);
+      coeff(0) = derivative_cache(0);
+      coeff(n) = derivative_cache(1);
+
+      for (unsigned k = 1; k <= log_n; k++)
+      {
+        auto lin_spaced = Eigen::ArrayXi::LinSpaced(_exp2(k - 1), 0, _exp2(k - 1) - 1);
+        auto index_c = _exp2(log_n + 1 - (k + 1)) + lin_spaced * _exp2(log_n + 1 - k);
+        auto index_dc = _exp2(k - 1) + 1 + lin_spaced;
+        // TODO: make use of slicing & indexing in Eigen3.4
+        // coeff(index_c) = coeff(N - index_c) = derivative_cache(index_dc) / n;
+        for (unsigned i = 0; i < lin_spaced.size(); i++)
+          coeff(index_c(i)) = coeff(N - index_c(i)) = derivative_cache(index_dc(i)) / n;
+      }
+
+      fft.fwd(fft_out, coeff);
+      chebyshev = (fft_out.real().head(n - 1) - fft_out.real().segment(2, n - 1)).array() /
+                  Eigen::ArrayXd::LinSpaced(n - 1, 4, 4 * (n - 1));
+    } while (std::fabs(chebyshev.tail<1>()[0]) > _epsilon * 1e-2);
+
+    unsigned cut = 0;
+    while (std::fabs(chebyshev(cut)) > _epsilon * 1e-2)
+      cut++;
+    cached_chebyshev_coeffs_ = std::make_unique<Eigen::VectorXd>(cut + 1);
+    (*cached_chebyshev_coeffs_) << 0, chebyshev.head(cut);
+    (*cached_chebyshev_coeffs_)(0) = -evaluate_chebyshev(0, *cached_chebyshev_coeffs_);
   }
-  return out;
+  return evaluate_chebyshev(t, *cached_chebyshev_coeffs_);
 }
+
+double Curve::length() const {
+  return length(1.0);
+}
+

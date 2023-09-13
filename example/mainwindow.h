@@ -23,15 +23,10 @@ public:
 
 private slots:
   void on_actionDisplay_bounding_box_toggled(bool arg1);
-
   void on_actionDisplay_control_points_toggled(bool arg1);
-
   void on_actionDisplay_curvature_toggled(bool arg1);
-
   void on_actionDisplay_intersections_toggled(bool arg1);
-
   void on_actionDisplay_knots_toggled(bool arg1);
-
   void on_actionDelete_triggered();
 
 private:
@@ -49,6 +44,7 @@ private:
   void onUpdateKnot();
   void onUpdateWeight();
   qCurve *addCurveToScene(NURBS::Curve c);
+  void removeCurveFromScene(qCurve *curve);
   void displayKnotVectorGraph(qCurve *curve);
 };
 
