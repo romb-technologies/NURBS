@@ -29,6 +29,8 @@ private slots:
   void on_actionDisplay_knots_toggled(bool arg1);
   void on_actionDelete_triggered();
 
+  void on_actionConvert_to_Beziers_triggered();
+
 private:
   Ui::MainWindow* ui;
   CustomScene* scene;
@@ -44,6 +46,7 @@ private:
   void onUpdateKnot();
   void onUpdateWeight();
   qCurve *addCurveToScene(NURBS::Curve c);
+  qCurve *addCurveToScene(NURBS::Curve c, QString name);
   void removeActiveCurveFromScene();
   void graphKnotVector(qCurve *curve);
 };

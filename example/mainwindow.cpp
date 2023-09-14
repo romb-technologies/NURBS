@@ -54,8 +54,10 @@ MainWindow::MainWindow(QWidget* parent)
           this,
           [this](QListWidgetItem *current) {
             if (current) {
-              activeCurve->disconnect(ui->knotVector);
-              activeCurve->disconnect(ui->weights);
+              if (activeCurve) {
+                  activeCurve->disconnect(ui->knotVector);
+                  activeCurve->disconnect(ui->weights);
+                }
               activeCurve = static_cast<CurveListWidgetItem*>(current)->curve;
 
               ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
@@ -95,7 +97,11 @@ MainWindow::MainWindow(QWidget* parent)
                       [this]() {
                   graphKnotVector(activeCurve);
                 });
-              }  });
+              }
+            else {
+                activeCurve = nullptr;
+              }
+  });
 
   ui->customPlot->xAxis->setRange(0, 1);
   ui->customPlot->yAxis->setRange(0, 1);
@@ -105,12 +111,19 @@ MainWindow::MainWindow(QWidget* parent)
   ui->graphicsView->centerOn(scene->itemsBoundingRect().center());
 }
 
-qCurve* MainWindow::addCurveToScene(NURBS::Curve c) {
+qCurve* MainWindow::addCurveToScene(NURBS::Curve c)
+{
     static uint counter = 1;
+    qCurve *qc = addCurveToScene(c, QString("Curve %1").arg(QString::number(counter++)));
+    return qc;
+}
+
+qCurve* MainWindow::addCurveToScene(NURBS::Curve c, QString name)
+{
     qCurve* qc = new qCurve(c);
     scene->addItem(qc);
     new CurveListWidgetItem(qc,
-                            QString("Curve %1").arg(QString::number(counter++)),
+                            name,
                             ui->curveList);
     connect(qc,
             &qCurve::curveChanged,
@@ -122,9 +135,14 @@ qCurve* MainWindow::addCurveToScene(NURBS::Curve c) {
     return qc;
 }
 
-void MainWindow::removeActiveCurveFromScene() {
+void MainWindow::removeActiveCurveFromScene()
+{
+    if (!activeCurve)
+      return;
     scene->removeItem(activeCurve);
     delete activeCurve;
+    activeCurve = nullptr;
+
     scene->selectedItems().clear();
 
     ui->knotVector->clear();
@@ -138,12 +156,11 @@ void MainWindow::removeActiveCurveFromScene() {
     QListWidgetItem *it = ui->curveList->takeItem(ui->curveList->currentRow());
     delete it;
 
-    if (ui->curveList->count() > 0)
-      activeCurve = static_cast<CurveListWidgetItem*>(ui->curveList->currentItem())->curve;
 }
 
 
-void MainWindow::graphKnotVector(qCurve *curve) {
+void MainWindow::graphKnotVector(qCurve *curve)
+{
     std::vector<QVector<double>> x, y;
 
     int m = curve->order() + 1;
@@ -171,5 +188,4 @@ void MainWindow::graphKnotVector(qCurve *curve) {
 }
 
 MainWindow::~MainWindow() { delete ui; }
-
 

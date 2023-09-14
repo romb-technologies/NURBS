@@ -20,6 +20,7 @@ public slots:
 private:
   std::vector<QDoubleSpinBox*> boxes;
   QDoubleSpinBox* makeSpinBox(double min, double max, double step);
+  QHBoxLayout *h_layout;
 };
 
 #endif // QVECTORFIELD_H

@@ -2,10 +2,11 @@
 
 qVectorField::qVectorField(QWidget *parent)
 {
-  QHBoxLayout *layout = new QHBoxLayout(this);
-  setLayout(layout);
-  layout->setMargin(0);
-  layout->setSpacing(0);
+  h_layout = new QHBoxLayout(this);
+  setLayout(h_layout);
+  h_layout->setMargin(0);
+  h_layout->setSpacing(0);
+  h_layout->addStretch();
 }
 
 void qVectorField::setData(const std::vector<double> data, double min, double max) {
@@ -34,7 +35,7 @@ QDoubleSpinBox* qVectorField::makeSpinBox(double min, double max, double step) {
     box->setMaximum(max);
     box->setSingleStep(step);
     boxes.emplace_back(box);
-    layout()->addWidget(box);
+    h_layout->insertWidget(h_layout->count()-1, box);
     return box;
 }
 
