@@ -64,7 +64,7 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
   if (draw_knots) {
       const int dot_size = 4;
       painter->setBrush(QBrush(Qt::magenta, Qt::SolidPattern));
-      Eigen::VectorXd knots = knotVector().matrix();
+      Eigen::VectorXd knots = Curve::knotVector().matrix();
       for (uint k=order(); k<controlPoints().size()+1; k++) {
           painter->setPen(Qt::magenta);
           painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
@@ -94,3 +94,35 @@ QRectF qCurve::boundingRect() const
   return QRectF(QPointF(bbox.min().x(), bbox.min().y()), QPointF(bbox.max().x(), bbox.max().y()));
 }
 
+
+std::vector<double> qCurve::knotVector()
+{
+  std::vector<double> out(Curve::knotVector().rows());
+  Eigen::Map<Eigen::ArrayXd>(out.data(), out.size()) = Curve::knotVector();
+  return out;
+}
+
+std::vector<double> qCurve::weights()
+{
+  std::vector<double> out(Curve::weights().rows());
+  Eigen::Map<Eigen::VectorXd>(out.data(), out.size()) = Curve::weights();
+  return out;
+}
+
+void qCurve::setKnot(int idx, double value)
+{
+  if (knot(idx) != value) {
+      Curve::setKnot(idx, value);
+      emit knotChanged(idx, knot(idx));
+      emit curveChanged();
+    }
+}
+
+void qCurve::setWeight(int idx, double value)
+{
+  if (weight(idx) != value) {
+      Curve::setWeight(idx, value);
+      emit weightChanged(idx, value);
+      emit curveChanged();
+    }
+}

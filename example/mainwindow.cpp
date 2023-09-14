@@ -54,19 +54,53 @@ MainWindow::MainWindow(QWidget* parent)
           this,
           [this](QListWidgetItem *current) {
             if (current) {
+              activeCurve->disconnect(ui->knotVector);
+              activeCurve->disconnect(ui->weights);
               activeCurve = static_cast<CurveListWidgetItem*>(current)->curve;
-//              displayKnotVector(activeCurve);
-//              displayWeights(activeCurve);
-              displayKnotVectorGraph(activeCurve);
+
+              ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
+              connect(ui->knotVector,
+                      &qVectorField::valueChanged,
+                      activeCurve,
+                      &qCurve::setKnot);
+              connect(activeCurve,
+                      &qCurve::knotChanged,
+                      ui->knotVector,
+                      &qVectorField::setValue);
+
+              ui->weights->setData(activeCurve->weights(), 0.0, 100.0);
+              connect(ui->weights,
+                      &qVectorField::valueChanged,
+                      activeCurve,
+                      &qCurve::setWeight);
+              connect(activeCurve,
+                      &qCurve::weightChanged,
+                      ui->weights,
+                      &qVectorField::setValue);
+
               ui->infoText->setText(QString("Order: %1 | Points: %2").arg(
                                       QString::number(activeCurve->order()),
                                       QString::number(activeCurve->controlPoints().size()))
                                     );
+
+              ui->customPlot->clearGraphs();
+              int N = activeCurve->controlPoints().size();
+              for (int pt=0; pt<N; pt++) {
+                  ui->customPlot->addGraph()->setPen(QPen(QColor(255.0*pt/(N-1), 0, 255.0*(1-pt/(N-1)))));
+                }
+              graphKnotVector(activeCurve);
+              connect(activeCurve,
+                      &qCurve::knotChanged,
+                      this,
+                      [this]() {
+                  graphKnotVector(activeCurve);
+                });
               }  });
+
+  ui->customPlot->xAxis->setRange(0, 1);
+  ui->customPlot->yAxis->setRange(0, 1);
+
   ui->curveList->setCurrentRow(0);
-
-//  std::cout << activeCurve->length() << "\n";
-
   ui->graphicsView->scene()->setItemIndexMethod(QGraphicsScene::NoIndex);
   ui->graphicsView->centerOn(scene->itemsBoundingRect().center());
 }
@@ -78,24 +112,23 @@ qCurve* MainWindow::addCurveToScene(NURBS::Curve c) {
     new CurveListWidgetItem(qc,
                             QString("Curve %1").arg(QString::number(counter++)),
                             ui->curveList);
+    connect(qc,
+            &qCurve::curveChanged,
+            this,
+            [this]() {
+        scene->update();
+      });
     activeCurve = qc;
     return qc;
 }
 
-void MainWindow::removeCurveFromScene(qCurve *curve) {
+void MainWindow::removeActiveCurveFromScene() {
     scene->removeItem(activeCurve);
     delete activeCurve;
     scene->selectedItems().clear();
 
-    for (int i=0; i<knotVectorField.size(); i++) {
-        delete knotVectorField[i];
-    }
-    knotVectorField.clear();
-
-    for (int i=0; i<weightField.size(); i++) {
-        delete weightField[i];
-    }
-    weightField.clear();
+    ui->knotVector->clear();
+    ui->weights->clear();
 
     ui->customPlot->clearGraphs();
 
@@ -109,69 +142,10 @@ void MainWindow::removeCurveFromScene(qCurve *curve) {
       activeCurve = static_cast<CurveListWidgetItem*>(ui->curveList->currentItem())->curve;
 }
 
-QDoubleSpinBox* MainWindow::makeSpinBox(double min, double max, double step, std::vector<QDoubleSpinBox*>& addTo) {
-    QDoubleSpinBox* box = new QDoubleSpinBox();
-    box->setMinimum(min);
-    box->setMaximum(max);
-    box->setSingleStep(step);
-    addTo.emplace_back(box);
-    return box;
-}
 
-
-//void MainWindow::displayKnotVector(qCurve *curve) {
-//    //Clear previous knot vector
-//    for (int i=0; i<knotVectorField.size(); i++) {
-//        delete knotVectorField[i];
-//    }
-//    knotVectorField.clear();
-
-//    for (int i=0; i<curve->knotVector().rows(); i++){
-//        QDoubleSpinBox* box = makeSpinBox(0.0, 1.0, 0.01, knotVectorField);
-//        ui->knotVectorLayout->insertWidget(
-//                    ui->knotVectorLayout->count() - 1,
-//                    box);
-//        box->setValue(curve->knotVector()(i));
-//        connect(box,
-//                QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-//                this,
-//                [this, i, curve](double d){
-//                        curve->setKnot(i, d);
-//                        qobject_cast<QDoubleSpinBox*>(sender())->setValue(curve->knot(i));
-//                        displayKnotVectorGraph(activeCurve);
-//                        scene->update();
-//                });
-//    }
-//}
-
-//void MainWindow::displayWeights(qCurve* curve) {
-//    // Clear previous weights
-//    for (int i=0; i<weightField.size(); i++) {
-//        delete weightField[i];
-//    }
-//    weightField.clear();
-
-//    for (int i=0; i<curve->weights().rows(); i++){
-//        QDoubleSpinBox* box = makeSpinBox(-100.0, 100.0, 0.01, weightField);
-//        ui->weightLayout->insertWidget(
-//                    ui->weightLayout->count() - 1,
-//                    box);
-//        box->setValue(curve->weight(i));
-//        connect(box,
-//                QOverload<double>::of(&QDoubleSpinBox::valueChanged),
-//                this,
-//                [this, i, curve](double d){
-//                        curve->setWeight(d, i);
-//                        displayKnotVectorGraph(activeCurve);
-//                        scene->update();
-//                });
-//    }
-//}
-
-void MainWindow::displayKnotVectorGraph(qCurve *curve) {
-    ui->customPlot->clearGraphs();
-    // generate some data:
+void MainWindow::graphKnotVector(qCurve *curve) {
     std::vector<QVector<double>> x, y;
+
     int m = curve->order() + 1;
     int N = curve->controlPoints().size();
     double detail = 1000;
@@ -179,7 +153,6 @@ void MainWindow::displayKnotVectorGraph(qCurve *curve) {
     for (int pt=0; pt<N; pt++) {
         x.emplace_back(QVector<double>(detail+1));
         y.emplace_back(QVector<double>(detail+1));
-        ui->customPlot->addGraph()->setPen(QPen(QColor(255.0*pt/(N-1), 0, 255.0*(1-pt/(N-1)))));
       }
 
     for (int i=0; i<=detail; i++) {
@@ -194,10 +167,6 @@ void MainWindow::displayKnotVectorGraph(qCurve *curve) {
     for (int pt=0; pt<N; pt++)
       ui->customPlot->graph(pt)->setData(x[pt], y[pt]);
 
-
-    // create graph and assign data to it:
-    ui->customPlot->xAxis->setRange(0, 1);
-    ui->customPlot->yAxis->setRange(0, 1);
     ui->customPlot->replot();
 }
 

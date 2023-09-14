@@ -626,9 +626,9 @@ double Curve::weight(int idx) const
     return weighted_control_points_(idx, 2);
 }
 
-void Curve::setWeight(double w, unsigned idx)
+void Curve::setWeight(int idx, double value)
 {
-    weighted_control_points_.row(idx) *= w / weighted_control_points_(idx, 2);
+    weighted_control_points_.row(idx) *= value / weighted_control_points_(idx, 2);
 
     for (int i=std::max<int>(0, idx-p_); i<=idx && i<spans.size(); i++) {
         spans[i]->updateControlPoints();

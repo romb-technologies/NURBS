@@ -10,12 +10,13 @@ class qVectorField : public QWidget
   Q_OBJECT
 public:
   qVectorField(QWidget *parent = nullptr);
-  virtual ~qVectorField() { clear(); }
+  virtual ~qVectorField() {}
   void clear();
+  void setData(const std::vector<double> data, double min, double max);
 signals:
-  void valueChanged(double d, int i);
+  void valueChanged(int idx, double value);
 public slots:
-  void setValue(double d, int i);
+  void setValue(int idx, double value);
 private:
   std::vector<QDoubleSpinBox*> boxes;
   QDoubleSpinBox* makeSpinBox(double min, double max, double step);

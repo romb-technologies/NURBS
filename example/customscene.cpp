@@ -244,12 +244,11 @@ void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
       {
         NURBS::Point pos = c_curve->controlPoint(cp_to_update.second);
         c_curve->prepareGeometryChange();
-        c_curve->setWeight(current_weight + (p[0] - pos[0])*0.005, cp_to_update.second);
+        c_curve->setWeight(cp_to_update.second, current_weight + (p[0] - pos[0])*0.005);
       }
       number_display->setPlainText(
                   QString::number(c_curve->weight(cp_to_update.second))
               );
-      update();
   }
   QGraphicsScene::mouseMoveEvent(mouseEvent);
 }

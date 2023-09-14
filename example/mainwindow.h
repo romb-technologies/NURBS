@@ -44,8 +44,8 @@ private:
   void onUpdateKnot();
   void onUpdateWeight();
   qCurve *addCurveToScene(NURBS::Curve c);
-  void removeCurveFromScene(qCurve *curve);
-  void displayKnotVectorGraph(qCurve *curve);
+  void removeActiveCurveFromScene();
+  void graphKnotVector(qCurve *curve);
 };
 
 #endif // MAINWINDOW_H

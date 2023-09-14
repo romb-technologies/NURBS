@@ -32,6 +32,6 @@ void MainWindow::on_actionDisplay_knots_toggled(bool arg1)
 
 void MainWindow::on_actionDelete_triggered()
 {
-    removeCurveFromScene(activeCurve);
+    removeActiveCurveFromScene();
     scene->update();
 }

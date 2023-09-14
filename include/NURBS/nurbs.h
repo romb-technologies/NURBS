@@ -214,7 +214,7 @@ public:
    * \param w New weight
    * \param idx Weight index
    */
-  void setWeight(double w, unsigned idx);
+  void setWeight(int idx, double value);
 
   /*!
    * \brief Get the weight vector of the curve
