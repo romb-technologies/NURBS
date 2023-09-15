@@ -53,6 +53,7 @@ private:
   qCurve *addCurveToScene(NURBS::Curve c, QString name);
   void removeActiveCurveFromScene();
   void graphKnotVector(qCurve *curve);
+  void clearInfoDisplay();
 };
 
 #endif // MAINWINDOW_H

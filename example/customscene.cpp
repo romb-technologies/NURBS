@@ -246,7 +246,9 @@ qCurve* CustomScene::getClosestCurve(NURBS::Point p, bool selected, double max_d
 }
 
 void CustomScene::selectItem(qCurve *c) {
+  blockSignals(true);
   clearSelection();
+  blockSignals(false);
   c->setSelected(true);
   update();
 }
