@@ -130,8 +130,14 @@
    <attribute name="toolBarBreak">
     <bool>false</bool>
    </attribute>
-   <addaction name="actionConvert_to_Beziers"/>
+   <addaction name="actionNew_curve"/>
    <addaction name="actionDelete"/>
+   <addaction name="separator"/>
+   <addaction name="actionRaise_order"/>
+   <addaction name="actionLower_order"/>
+   <addaction name="actionAppend_point"/>
+   <addaction name="actionInsert_knot"/>
+   <addaction name="actionConvert_to_Beziers"/>
   </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
@@ -156,18 +162,32 @@
     <property name="title">
      <string>Edit</string>
     </property>
-    <addaction name="actionConvert_to_Beziers"/>
+    <addaction name="actionNew_curve"/>
     <addaction name="actionDelete"/>
+   </widget>
+   <widget class="QMenu" name="menuCurve">
+    <property name="title">
+     <string>Curve</string>
+    </property>
+    <addaction name="actionAppend_point"/>
+    <addaction name="actionInsert_knot"/>
+    <addaction name="separator"/>
+    <addaction name="actionRaise_order"/>
+    <addaction name="actionLower_order"/>
+    <addaction name="separator"/>
+    <addaction name="actionConvert_to_Beziers"/>
    </widget>
    <addaction name="menuEdit"/>
    <addaction name="menuView"/>
+   <addaction name="menuCurve"/>
   </widget>
+  <widget class="QStatusBar" name="statusBar"/>
   <action name="actionConvert_to_Beziers">
    <property name="text">
     <string>Convert to Beziers</string>
    </property>
    <property name="toolTip">
-    <string>Convert this NURBS curve into multiple Bezier curves</string>
+    <string>Convert the selected NURBS curve into multiple Bezier curves</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+B</string>
@@ -178,7 +198,7 @@
     <string>Delete</string>
    </property>
    <property name="toolTip">
-    <string>Delete this curve</string>
+    <string>Delete the selected curve</string>
    </property>
    <property name="shortcut">
     <string>Del</string>
@@ -246,6 +266,70 @@
    </property>
    <property name="shortcut">
     <string>K</string>
+   </property>
+  </action>
+  <action name="actionRaise_order">
+   <property name="text">
+    <string>Raise order</string>
+   </property>
+   <property name="toolTip">
+    <string>Raise the order of the selected curve by 1</string>
+   </property>
+   <property name="shortcut">
+    <string>+</string>
+   </property>
+  </action>
+  <action name="actionLower_order">
+   <property name="text">
+    <string>Lower order</string>
+   </property>
+   <property name="toolTip">
+    <string>Lower the order of the selected curve by 1</string>
+   </property>
+   <property name="shortcut">
+    <string>-</string>
+   </property>
+  </action>
+  <action name="actionAppend_point">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Append point</string>
+   </property>
+   <property name="toolTip">
+    <string>Add a new point to the end of the selected curve, creating an additional knot</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
+   </property>
+  </action>
+  <action name="actionInsert_knot">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Insert knot</string>
+   </property>
+   <property name="toolTip">
+    <string>Insert a new knot on the selected curve, creating an additional control point</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+K</string>
+   </property>
+  </action>
+  <action name="actionNew_curve">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>New curve</string>
+   </property>
+   <property name="toolTip">
+    <string>Add a new curve into the scene</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
    </property>
   </action>
  </widget>

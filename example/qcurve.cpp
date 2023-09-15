@@ -3,6 +3,9 @@
 #include <QPainter>
 #include <QPen>
 
+#define CONTROL_POINT_COLOR (isSelected() ? Qt::blue : Qt::gray)
+#define KNOT_COLOR (isSelected() ? Qt::magenta : Qt::lightGray)
+
 void qCurve::setDraw_control_points(bool value) { draw_control_points = value; }
 
 void qCurve::setDraw_curvature_radious(bool value) { draw_curvature_radius = value; }
@@ -35,8 +38,9 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
   painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform, true);
 
   QPen pen;
-  pen.setStyle(isSelected() ? Qt::DashDotLine : Qt::SolidLine);
+//  pen.setStyle(isSelected() ? Qt::DashLine : Qt::SolidLine);
   pen.setColor(getLocked() ? Qt::red : Qt::black);
+  pen.setWidth(isSelected() ? 2 : 1);
   painter->setPen(pen);
   QPainterPath curve;
   auto poly = polyline();
@@ -48,25 +52,25 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
   if (draw_control_points)
   {
     const int dot_size = 6;
-    painter->setBrush(QBrush(Qt::blue, Qt::SolidPattern));
+    painter->setBrush(QBrush(CONTROL_POINT_COLOR, Qt::SolidPattern));
     NURBS::PointVector points = controlPoints();
     for (uint k = 1; k < points.size(); k++)
     {
-      painter->setPen(Qt::blue);
+      painter->setPen(CONTROL_POINT_COLOR);
       painter->drawEllipse(QRectF(points[k - 1].x() - dot_size / 2, points[k - 1].y() - dot_size / 2, dot_size, dot_size));
-      painter->setPen(QPen(QBrush(Qt::gray), 1, Qt::DotLine));
+      painter->setPen(QPen(QBrush(Qt::lightGray), 1, Qt::DotLine));
       painter->drawLine(QLineF(points[k - 1].x(), points[k - 1].y(), points[k].x(), points[k].y()));
     }
-    painter->setPen(Qt::blue);
+    painter->setPen(CONTROL_POINT_COLOR);
     painter->drawEllipse(QRectF(points.back().x() - dot_size / 2, points.back().y() - dot_size / 2, dot_size, dot_size));
   }
 
   if (draw_knots) {
       const int dot_size = 4;
-      painter->setBrush(QBrush(Qt::magenta, Qt::SolidPattern));
+      painter->setBrush(QBrush(KNOT_COLOR, Qt::SolidPattern));
       Eigen::VectorXd knots = Curve::knotVector().matrix();
       for (uint k=order(); k<controlPoints().size()+1; k++) {
-          painter->setPen(Qt::magenta);
+          painter->setPen(KNOT_COLOR);
           painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
       }
   }

@@ -31,6 +31,10 @@ private slots:
 
   void on_actionConvert_to_Beziers_triggered();
 
+  void on_actionRaise_order_triggered();
+
+  void on_actionLower_order_triggered();
+
 private:
   Ui::MainWindow* ui;
   CustomScene* scene;

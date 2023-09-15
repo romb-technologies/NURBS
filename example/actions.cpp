@@ -46,3 +46,19 @@ void MainWindow::on_actionConvert_to_Beziers_triggered()
       }
     scene->update();
 }
+
+void MainWindow::on_actionRaise_order_triggered()
+{
+    activeCurve->elevateOrder();
+    scene->update();
+}
+
+void MainWindow::on_actionLower_order_triggered()
+{
+    activeCurve->lowerOrder();
+    scene->update();
+}
+
+
+
+

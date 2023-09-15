@@ -103,6 +103,19 @@ MainWindow::MainWindow(QWidget* parent)
               }
   });
 
+  connect(scene,
+          &CustomScene::cursorMove,
+          this,
+          [this](QPointF p) {
+    ui->statusBar->showMessage(QString("(%1, %2)").arg(p.x()).arg(p.y()));
+  });
+  connect(scene,
+          &CustomScene::pointToT,
+          this,
+          [this](double t) {
+      ui->statusBar->showMessage(QString("t=%1").arg(t));
+    });
+
   ui->customPlot->xAxis->setRange(0, 1);
   ui->customPlot->yAxis->setRange(0, 1);
 
