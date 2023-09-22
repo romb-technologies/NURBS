@@ -4,8 +4,8 @@
 #include <map>
 #include <memory>
 #include <iostream>
-#include "declarations.h"
-#include "span.h"
+#include "NURBS/declarations.h"
+#include "NURBS/span.h"
 
 namespace NURBS {
 
@@ -25,7 +25,7 @@ public:
    * \brief Create a NURBS curve
    * \param points A vector of control points that define the curve
    */
-  Curve(const PointVector& points);
+  Curve(const PointVector& points, int p=3);
 
   /*!
    * \brief Create a NURBS curve
@@ -263,6 +263,7 @@ public:
   int getKnotSpanIndex(double t) const;
   double length() const;
   double length(double t) const;
+  void removeKnot(int ix);
 
 protected:
   /*!

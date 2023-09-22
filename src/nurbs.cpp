@@ -112,12 +112,14 @@ Curve::Curve(Eigen::MatrixX2d points, int p)
 
 }
 
-Curve::Curve(const PointVector& points)
+Curve::Curve(const PointVector& points, int p)
     : N_(points.size())
-    , p_(2)
+    , p_(p)
     , T_(N_+p_+1)
 {
     uint m = N_+p_+1;
+
+    weighted_control_points_ = Eigen::MatrixX3d(N_, 3);
     for (unsigned k = 0; k < N_; k++)
         weighted_control_points_.row(k).head(2) = points[k];
     weighted_control_points_.rightCols<1>() = Eigen::VectorXd::Ones(N_);
@@ -867,3 +869,7 @@ double Curve::length() const {
   return length(1.0);
 }
 
+void Curve::removeKnot(int ix) {
+    Eigen::ArrayXd newT(T_.rows()-1);
+
+}

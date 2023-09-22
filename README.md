@@ -20,9 +20,9 @@ The project includes an example program to demonstrate the library's features.
 
 ## Installation
 ```
-git clone https://github.com/romb-technologies/Bezier
-mkdir Bezier/build
-cd Bezier/build
+git clone https://github.com/romb-technologies/NURBS
+mkdir NURBS/build
+cd NURBS/build
 cmake ..
 make
 make install
