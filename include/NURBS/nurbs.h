@@ -263,7 +263,8 @@ public:
   int getKnotSpanIndex(double t) const;
   double length() const;
   double length(double t) const;
-  void removeKnot(int ix);
+  void removeKnot(int ix, int k=1);
+  void removeControlPoint(int ix);
 
 protected:
   /*!

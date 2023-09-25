@@ -37,6 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
 
   curve1.appendPoint({600, 1000});
   curve2.insertKnot(0.25, 3);
+  curve2.removeKnot(4, 3);
   auto split = curve2.splitCurve(0.4);
   auto beziers = curve2.piecewiseBezier();
 

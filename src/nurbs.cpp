@@ -865,11 +865,78 @@ double Curve::length(double t) const
   return evaluate_chebyshev(t, *cached_chebyshev_coeffs_);
 }
 
-double Curve::length() const {
+double Curve::length() const
+{
   return length(1.0);
 }
 
-void Curve::removeKnot(int ix) {
-    Eigen::ArrayXd newT(T_.rows()-1);
+void Curve::removeKnot(int ix, int k)
+{
+    while(T_(ix) >= T_(ix+1)) ix++;
+    int s = getKnotMultiplicity(T_(ix));
 
+    int first = ix-p_+1;
+    int last = ix-s-1;
+    Eigen::MatrixX3d Pt;
+
+    int t, i, j;
+    Pt = Eigen::MatrixX3d(T_.rows(), 3);
+    for (t=0; t<k && t<s; t++) {
+
+        first--; last++;
+        int off = first-1;
+        Pt.row(0) = weighted_control_points_.row(off);
+        Pt.row(last+1-off) = weighted_control_points_.row(last+1);
+
+        i=first; j=last;
+        while(j-i > t) {
+            double alpha_i = (T_(ix)-T_(i))/(T_(i+p_+1+t)-T_(i));
+            double alpha_j = (T_(ix)-T_(j-t))/(T_(j+p_+1)-T_(j-t));
+
+            Pt.row(i-off) = (weighted_control_points_.row(i) - (1-alpha_i)*Pt.row(i-off-1)) / alpha_i;
+            Pt.row(j-off) = (weighted_control_points_.row(j) - alpha_j*Pt.row(j-off+1)) / (1-alpha_j);
+
+            i++; j--;
+        }
+
+        i=first; j=last;
+        while(j-i > t) {
+            weighted_control_points_.row(i) = Pt.row(i-off);
+            weighted_control_points_.row(j) = Pt.row(j-off);
+            i++; j--;
+        }
+
+    }
+    i = (2*ix-s-p_)/2; j = i;
+    for (int m=1; m<t; m++){
+        if (m%2 == 1)
+            i++;
+        else
+            j--;
+    }
+
+    for (int kn=ix+1; kn<N_+p_+1; kn++) {
+        T_(kn-t) = T_(kn);
+    }
+    for (int m=i+1; m<N_; m++) {
+        weighted_control_points_.row(j++) = weighted_control_points_.row(m);
+    }
+
+    weighted_control_points_.conservativeResize(N_-t, 3);
+    T_.conservativeResize(N_+p_+1-t);
+
+    for (int m=0; m<t; m++) {
+
+        delete spans.back();
+        spans.pop_back();
+
+    }
+    // reassign spans
+    for (int i=0; i<spans.size(); i++) {
+        new (&(spans[i]->wpoints)) Eigen::Ref<Eigen::MatrixX3d> {weighted_control_points_.middleRows(i, p_+1)};
+        new (&(spans[i]->knots)) Eigen::Ref<Eigen::VectorXd> {T_.segment(i+1, 2*p_)};
+        spans[i]->update();
+    }
+
+    resetCache();
 }
