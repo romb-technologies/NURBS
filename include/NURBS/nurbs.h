@@ -291,10 +291,10 @@ private:
                                                                         for calculating the length of the curve */
 
   Eigen::ArrayXd T_;
-  mutable std::vector<Span*> spans;
+  mutable std::vector<Span> spans;
 
 
-  Span *getKnotSpan(double t) const;
+  Span &getKnotSpan(double t) const;
   int getKnotMultiplicity(double t) const;
 };
 
