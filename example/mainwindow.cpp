@@ -39,7 +39,6 @@ MainWindow::MainWindow(QWidget* parent)
   curve2.insertKnot(0.25, 3);
   curve2.removeKnot(4, 3);
   auto split = curve2.splitCurve(0.4);
-  auto beziers = curve2.piecewiseBezier();
 
   addCurveToScene(curve1);
   addCurveToScene(curve2);
@@ -160,6 +159,7 @@ qCurve* MainWindow::addCurveToScene(NURBS::Curve c)
 {
     static uint counter = 1;
     qCurve *qc = addCurveToScene(c, QString("Curve %1").arg(QString::number(counter++)));
+    activeCurve = qc;
     return qc;
 }
 
@@ -184,16 +184,18 @@ void MainWindow::removeActiveCurveFromScene()
 {
     if (!activeCurve)
       return;
+    ui->curveList->blockSignals(true);
+    QListWidgetItem *it = ui->curveList->takeItem(ui->curveList->currentRow());
+    delete it;
+    ui->curveList->blockSignals(false);
+
     scene->removeItem(activeCurve);
     delete activeCurve;
     activeCurve = nullptr;
 
+
     scene->selectedItems().clear();
     clearInfoDisplay();
-
-    QListWidgetItem *it = ui->curveList->takeItem(ui->curveList->currentRow());
-    delete it;
-
 }
 
 

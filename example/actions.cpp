@@ -38,6 +38,8 @@ void MainWindow::on_actionDelete_triggered()
 
 void MainWindow::on_actionConvert_to_Beziers_triggered()
 {
+    if (!activeCurve)
+      return;
     static int counter = 1;
     std::vector<NURBS::Curve> beziers = activeCurve->piecewiseBezier();
     removeActiveCurveFromScene();
