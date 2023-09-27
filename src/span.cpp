@@ -82,4 +82,18 @@ void Span::updateControlPoints()
     cached_w_bf = basis_function_ * wpoints.col(2);
 }
 
+PointVector Span::polyline() const {
+    if (!cached_polyline_)
+    {
+        cached_polyline_ = std::optional<PointVector>();
+        for(double u = 0.0; u < 1.0 + 0.005; u+=0.01) {
+            cached_polyline_->emplace_back(valueAt(u));
+        }
+    }
+    return *cached_polyline_;
+}
 
+Point Span::valueAt(double u) const {
+    Eigen::RowVectorXd pw = _powSeries(u, p_);
+    return (pw * cached_v_bf) / pw.dot(cached_w_bf);
+}

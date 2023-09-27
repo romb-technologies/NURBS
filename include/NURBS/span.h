@@ -2,6 +2,8 @@
 #define SPAN_H
 
 #include "declarations.h"
+#include "utils.h"
+#include <memory>
 
 namespace NURBS {
 
@@ -17,14 +19,18 @@ public:
     Eigen::Ref<Eigen::ArrayXd> knots;
 
     double start_t, end_t;
-    uint p_;
-    Eigen::MatrixXd basis_function_;
     Eigen::RowVectorXd cached_w_bf;
     Eigen::MatrixXd cached_v_bf;
     bool contains(double t) const;
     void update();
     void updateControlPoints();
     Eigen::MatrixXd getBasisFunction() const;
+    PointVector polyline() const;
+    Point valueAt(double u) const;
+    Eigen::MatrixXd basis_function_;
+    uint p_;
+private:
+    mutable std::optional<PointVector> cached_polyline_;
 };
 }
 

@@ -33,6 +33,6 @@ using BoundingBox = Eigen::AlignedBox2d;
  */
 const double _epsilon = std::sqrt(std::numeric_limits<double>::epsilon());
 
-};
+}
 
 #endif // DECLARATIONS_H

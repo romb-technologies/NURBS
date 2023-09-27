@@ -6,6 +6,7 @@
 #include <iostream>
 #include "NURBS/declarations.h"
 #include "NURBS/span.h"
+#include "utils.h"
 
 namespace NURBS {
 
