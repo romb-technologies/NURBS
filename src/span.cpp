@@ -7,17 +7,17 @@ using namespace NURBS;
 
 Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
                   Eigen::Ref<Eigen::ArrayXd> knot_v, double start, double end, uint p) :
-    wpoints(wpoints), knots(knot_v), start_t(start), end_t(end), p_(p)
+    wpoints_(wpoints), knots(knot_v), start_t_(start), end_t_(end), p_(p)
 {
     update();
 }
 
 bool Span::contains(double t) const
 {
-    if (start_t==end_t)
+    if (start_t_==end_t_)
         return false;
     else
-        return (t >= start_t) && (t < end_t);
+        return (t >= start_t_) && (t < end_t_);
 }
 
 Eigen::MatrixXd Span::getBasisFunction() const
@@ -28,13 +28,13 @@ Eigen::MatrixXd Span::getBasisFunction() const
 void Span::update()
 {
     // update start and end
-    start_t = knots(p_-1);
-    end_t = knots(p_);
+    start_t_ = knots(p_-1);
+    end_t_ = knots(p_);
 
     // generate basis function
     Eigen::MatrixXd m(1, 1); m<<1;
 
-    if (start_t != end_t) {
+    if (start_t_ != end_t_) {
         static const int i = p_-1;
         for (int k=2; k<=p_+1; k++)
         {
@@ -47,8 +47,8 @@ void Span::update()
             m3 << Eigen::MatrixXd::Zero(1, k-1), m;
 
             Eigen::ArrayXd
-                    d0 = Eigen::ArrayXd::Constant(k-1, start_t),
-                    d1 = Eigen::ArrayXd::Constant(k-1, end_t - start_t),
+                    d0 = Eigen::ArrayXd::Constant(k-1, start_t_),
+                    d1 = Eigen::ArrayXd::Constant(k-1, end_t_ - start_t_),
                     ddwn = Eigen::ArrayXd::Zero(k-1);
 
             ddwn = knots.segment(i+1, k-1) - knots.segment(i-k+2, k-1);
@@ -77,16 +77,16 @@ void Span::update()
 void Span::updateControlPoints()
 {
     // generate w_bf, v_bf
-    Eigen::MatrixX3d test = wpoints;
-    cached_v_bf = basis_function_ * wpoints.leftCols<2>();
-    cached_w_bf = basis_function_ * wpoints.col(2);
+    Eigen::MatrixX3d test = wpoints_;
+    cached_vbf_ = basis_function_ * wpoints_.leftCols<2>();
+    cached_wbf_ = basis_function_ * wpoints_.col(2);
 }
 
 PointVector Span::polyline() const {
     if (!cached_polyline_)
     {
-        cached_polyline_ = std::optional<PointVector>();
-        for(double u = 0.0; u < 1.0 + 0.005; u+=0.01) {
+        cached_polyline_ = PointVector();
+        for(double u = 0.0; u < 1.0 + 0.005; u+=0.02) {
             cached_polyline_->emplace_back(valueAt(u));
         }
     }
@@ -95,5 +95,9 @@ PointVector Span::polyline() const {
 
 Point Span::valueAt(double u) const {
     Eigen::RowVectorXd pw = _powSeries(u, p_);
-    return (pw * cached_v_bf) / pw.dot(cached_w_bf);
+    return (pw * cached_vbf_) / pw.dot(cached_wbf_);
+}
+
+void Span::resetCache() {
+    cached_polyline_.reset();
 }

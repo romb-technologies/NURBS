@@ -11,16 +11,16 @@ class Span
 {
 public:
     ~Span() = default;
-    Span(Eigen::Ref<Eigen::MatrixX3d> wpoints,
+    Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_,
          Eigen::Ref<Eigen::ArrayXd> knot_v,
          double start, double end, uint p);
 
-    Eigen::Ref<Eigen::MatrixX3d> wpoints;
+    Eigen::Ref<Eigen::MatrixX3d> wpoints_;
     Eigen::Ref<Eigen::ArrayXd> knots;
 
-    double start_t, end_t;
-    Eigen::RowVectorXd cached_w_bf;
-    Eigen::MatrixXd cached_v_bf;
+    double start_t_, end_t_;
+    Eigen::RowVectorXd cached_wbf_;
+    Eigen::MatrixXd cached_vbf_;
     bool contains(double t) const;
     void update();
     void updateControlPoints();
@@ -29,6 +29,8 @@ public:
     Point valueAt(double u) const;
     Eigen::MatrixXd basis_function_;
     uint p_;
+    /// Reset all privately cached data
+    void resetCache();
 private:
     mutable std::optional<PointVector> cached_polyline_;
 };
