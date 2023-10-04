@@ -11,7 +11,7 @@ Eigen::RowVectorXd _powSeries(double base, unsigned exp);
 Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsigned drv);
 Eigen::VectorXd _trimZeroes(const Eigen::VectorXd& vec);
 Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd &poly1, const Eigen::VectorXd &poly2);
-
+double dist(Point first, Point second);
 }
 
 #endif

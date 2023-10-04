@@ -92,7 +92,7 @@ public:
   std::pair<Point, Point> endPoints() const;
 
   /*!
-   * \brief Reverse order of control points
+   * \brief Reverse order of control points in place
    */
   void reverse();
 
@@ -266,6 +266,7 @@ public:
   double length(double t) const;
   void removeKnot(int ix, int k=1);
   void removeControlPoint(int ix);
+  Curve join(Curve &other);
 
 protected:
   /*!

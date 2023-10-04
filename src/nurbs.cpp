@@ -124,12 +124,10 @@ unsigned Curve::order() const {
 }
 
 void Curve::elevateOrder() {
-    p_++;
     resetCache();
 }
 
 void Curve::lowerOrder() {
-    if (p_>0) p_--;
     resetCache();
 }
 
@@ -880,4 +878,30 @@ void Curve::removeKnot(int ix, int k)
     }
 
     resetCache();
+}
+
+Curve Curve::join(Curve &other)
+{
+    // todo: elevate order
+    if (p_ != other.p_) return *this;
+
+    auto ends1 = endPoints();
+    auto ends2 = other.endPoints();
+
+    if (dist(ends1.second, ends2.second) < dist(ends1.second, ends2.first))
+        other.reverse();
+    if (dist(ends1.first, ends2.first) < dist(ends1.second, ends2.first))
+        this->reverse();
+    if (dist(ends1.first, ends2.second) < dist(ends1.first, ends2.first)) {
+        this->reverse();
+        other.reverse();
+    }
+
+    Eigen::MatrixX3d points(N_ + other.N_, 3);
+    points << weighted_control_points_, other.weighted_control_points_;
+
+    Eigen::ArrayXd knots(points.rows() + p_ + 1);
+    knots << T_.head(N_+p_-1), other.T_.tail(other.N_+p_-1) + T_(N_+p_);
+
+    return Curve(points.leftCols(2), p_);
 }

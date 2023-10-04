@@ -39,9 +39,11 @@ MainWindow::MainWindow(QWidget* parent)
   curve2.insertKnot(0.25, 3);
   curve2.removeKnot(4, 3);
   auto split = curve2.splitCurve(0.4);
+  auto join = curve1.join(curve2);
 
-  addCurveToScene(curve1);
-  addCurveToScene(curve2);
+//  addCurveToScene(curve1);
+//  addCurveToScene(curve2);
+  addCurveToScene(join);
 //  addCurveToScene(split.first);
 //  addCurveToScene(split.second);
 //  for (NURBS::Curve b: beziers) {
