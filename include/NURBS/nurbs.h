@@ -54,7 +54,7 @@ public:
    * Curve will always retain its shape
    * \warning Resets cached data
    */
-  void elevateOrder(uint t);
+  void elevateOrder(uint t=1);
 
   /*!
    * \brief Lower the curve order by 1

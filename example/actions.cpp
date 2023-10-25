@@ -52,7 +52,7 @@ void MainWindow::on_actionConvert_to_Beziers_triggered()
 
 void MainWindow::on_actionRaise_order_triggered()
 {
-    activeCurve->elevateOrder(1);
+    activeCurve->elevateOrder();
     ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
     scene->update();
 }
