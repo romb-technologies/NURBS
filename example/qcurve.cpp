@@ -130,3 +130,9 @@ void qCurve::setWeight(int idx, double value)
       emit curveChanged();
     }
 }
+
+void qCurve::elevateOrder(uint t)
+{
+    Curve::elevateOrder(t);
+    emit curveChanged();
+}

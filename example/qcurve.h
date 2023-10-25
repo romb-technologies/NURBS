@@ -40,6 +40,7 @@ public:
 public slots:
   void setKnot(int idx, double value);
   void setWeight(int idx, double value);
+  void elevateOrder(uint t);
 
 signals:
   void knotChanged(int idx, double value);

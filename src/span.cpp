@@ -35,7 +35,7 @@ void Span::update()
     Eigen::MatrixXd m(1, 1); m<<1;
 
     if (start_t_ != end_t_) {
-        static const int i = p_-1;
+        int i = p_-1;
         for (int k=2; k<=p_+1; k++)
         {
             Eigen::MatrixXd m1(k, k-1),
@@ -100,4 +100,6 @@ Point Span::valueAt(double u) const {
 
 void Span::resetCache() {
     cached_polyline_.reset();
+    start_t_ = knots(p_-1);
+    end_t_ = knots(p_);
 }

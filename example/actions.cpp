@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include "ui_mainwindow.h"
 
 void MainWindow::on_actionDisplay_bounding_box_toggled(bool arg1)
 {
@@ -51,7 +52,8 @@ void MainWindow::on_actionConvert_to_Beziers_triggered()
 
 void MainWindow::on_actionRaise_order_triggered()
 {
-    activeCurve->elevateOrder();
+    activeCurve->elevateOrder(1);
+    ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
     scene->update();
 }
 

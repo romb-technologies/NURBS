@@ -21,6 +21,7 @@ MainWindow::MainWindow(QWidget* parent)
   Eigen::MatrixX2d cp1, cp2;
   cp1.resize(4, 2);
   cp2.resize(5, 2);
+
   cp1 << 84, 162,
       246, 30,
       48, 236,
@@ -36,14 +37,14 @@ MainWindow::MainWindow(QWidget* parent)
   NURBS::Curve curve2(cp2 * 5);
 
   curve1.appendPoint({600, 1000});
-  curve2.insertKnot(0.25, 3);
-  curve2.removeKnot(4, 3);
+//  curve2.insertKnot(0.25, 3);
+//  curve2.removeKnot(4, 3);
   auto split = curve2.splitCurve(0.4);
   auto join = curve1.join(curve2);
 
-//  addCurveToScene(curve1);
-//  addCurveToScene(curve2);
-  addCurveToScene(join);
+  addCurveToScene(curve1);
+  addCurveToScene(curve2);
+//  addCurveToScene(join);
 //  addCurveToScene(split.first);
 //  addCurveToScene(split.second);
 //  for (NURBS::Curve b: beziers) {
@@ -66,6 +67,7 @@ MainWindow::MainWindow(QWidget* parent)
                 return;
 
               ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
+
               connect(ui->knotVector,
                       &qVectorField::valueChanged,
                       activeCurve,

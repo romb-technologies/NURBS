@@ -123,9 +123,260 @@ unsigned Curve::order() const {
     return p_;
 }
 
-void Curve::elevateOrder() {
+int Bin(int n, int k) {
+    if (k == 0 || k == n)
+       return 1;
+    return Bin(n - 1, k - 1) + Bin(n - 1, k);
+}
+
+// (wake me up) wake me up inside (i can't wake up) wake me up inside (save me)
+void Curve::elevateOrder(uint t) {
+
+    uint new_p = p_+t;
+    
+    Eigen::MatrixXd bezalfs(new_p+1, p_+1);
+    Eigen::VectorXd alfs(p_-1);
+    Eigen::MatrixX3d
+            bpts(p_+1, 3),
+            ebpts(p_+t+1, 3),
+            Nextbpts(p_+1, 3);
+
+    Eigen::MatrixX3d new_wpoints(2*N_, 3);
+    Eigen::ArrayXd new_t(2*N_+new_p+1);
+    
+    /* Compute Bezier degree elevation coefficients */
+    bezalfs(0, 0) = bezalfs(new_p, p_) = 1.0;
+    for (uint i=1; i<=new_p/2; i++)
+    {
+        double inv = 1.0/Bin(new_p,i);
+        uint mpi = std::min(p_,i);
+        for (uint j=std::max(i-t, 0U); j<=mpi; j++)
+            bezalfs(i, j) = inv*Bin(p_,j)*Bin(t,i-j);
+    }
+    for (uint i=new_p/2+1; i<=new_p-1; i++)
+    {
+        uint mpi = std::min(p_,i);
+        for (uint j=std::max(0U, i-t); j<=mpi; j++)
+            bezalfs(i, j) = bezalfs(new_p-i, p_-j);
+    }
+    int new_m = new_p+1, kind = new_p+1, a = p_, r = -1,
+            b = p_+1, cind = 1;
+    double ua = T_(0), ub = T_(N_+p_);
+    new_wpoints.row(0) = weighted_control_points_.row(0);
+    for (int i=0; i<=new_p; i++)
+        new_t(i) = ua;
+    for (int i=0; i<=p_; i++)
+        bpts.row(i) = weighted_control_points_.row(i);
+
+    while (b < N_+p_+1)
+    {
+        int mul = getKnotMultiplicity(T_(b));
+        b += mul - 1;
+        new_m += mul+t;
+        double ub = T_(b);
+        int oldr = r;
+        r = p_-mul;
+        int lbz, rbz;
+
+        if (oldr > 0) lbz = (oldr+2)/2;
+        else lbz = 1;
+
+        if (r > 0)  rbz = new_p-(r+1)/2;
+        else rbz = new_p;
+        if (r > 0)
+        { /* Insert knot to get Bezier segment */
+            double numer = ub-ua;
+            for (int k=p_; k>mul; k--)
+                alfs(k-mul-1) = numer/(T_(a+k)-ua);
+            for (int j=1; j<=r; j++)
+            {
+                int save = r-j;
+                int s = mul+j;
+                for (int k=p_; k>=s; k--)
+                {
+                    bpts.row(k) = alfs(k-s)*bpts.row(k) +
+                            (1.0-alfs(k-s))*bpts.row(k-1) ;
+                }
+                Nextbpts.row(save) = bpts.row(p_);
+            }
+        } /* End of "insert knot" */
+
+        for (uint i=lbz; i<=new_p; i++)
+            /* Degree elevate Bezier */
+        { /* Only points lbz, ... ,ph are used below */
+            ebpts.row(i) = Eigen::Vector3d(0.0, 0.0, 0.0);
+            int mpi = std::min(p_,i);
+            for (int j=std::max(0U, i-t); j<=mpi; j++)
+                ebpts.row(i) = ebpts.row(i) + bezalfs(i, j)*bpts.row(j);
+        } /* End of degree elevating Bezier */
+
+        if (oldr > 1)
+        { /* Must remove knot u=U[a] oldr times */
+            int first = kind-2;
+            int last = kind;
+            int den = ub-ua;
+            int bet = (ub-new_t(kind-1))/den;
+            for (int tr=1; tr<oldr; tr++)
+            { /* Knot removal loop */
+                int i = first;
+                int j = last;
+                int kj = j-kind+1;
+                while (j-i > tr) /* Loop and compute the new */
+                { /* control points for one removal step */
+                    if (i < cind)
+                    {
+                        double alf = (ub-new_t(i))/(ua-new_t(i));
+                        new_wpoints.row(i) = alf*new_wpoints.row(i)
+                                + (1.0-alf)*new_wpoints.row(i-1);
+                    }
+                    if(j >= lbz)
+                    {
+                        if( j-tr <= kind-new_p+oldr )
+                        {
+                            double gam = (ub-new_t(j-tr))/den;
+                            ebpts.row(kj) = gam*ebpts.row(kj)+(1.0-gam)*ebpts.row(kj+1);
+                        }
+                        else
+                        {
+                            ebpts.row(kj) = bet*ebpts.row(kj)+(1.0-bet)*ebpts.row(kj+1);
+                        }
+                    }
+                    i++; j--; kj--;
+
+                }
+                first--;
+                last++;
+            }
+        } /* End of knot removal */
+
+        if (a != p_)
+            for (int i=0; i<new_p-oldr; i++) {
+                new_t(kind) = ua;
+                kind = kind+1;
+            }
+
+        new_t(kind) = ua;
+        for (int j=lbz; j<=rbz; j++)
+        {
+            new_wpoints.row(cind) = ebpts.row(j);
+            new_wpoints(cind, 2) = 1.0;
+            cind++;
+        }
+        if (b < N_+p_+1) // set up for next pass through loop
+        {
+            for (int j=0; j<r; j++) bpts.row(j) = Nextbpts.row(j);
+            for (int j=r; j<=p_; j++) bpts.row(j) = weighted_control_points_.row(b-p_+j);
+            a = b++; ua = ub;
+        }
+    }
+    for (int i=0; i<=new_p; i++)
+        new_t(kind+i) = ub;
+
+    int new_n = new_m-new_p-1;
+    Eigen::VectorXd test_t = new_t.matrix();
+
+    weighted_control_points_ = new_wpoints.topRows(new_n);
+    N_ = new_n;
+    p_ = new_p;
+    T_ = new_t.head(new_m);
+
+    spans_.clear();
+    for (uint i=0; i<N_-p_; i++) {
+        spans_.emplace_back(Span(weighted_control_points_.middleRows(i, p_+1),
+                                 T_.segment(i+1, 2*p_),
+                                 T_(i+p_), T_(i+p_+1), p_));
+    }
+
     resetCache();
 }
+
+//void Curve::elevateOrder() {
+//    // new order
+//    int k = p_+1;
+
+//    int ip = 0, iq = N_;
+//    int np = 0, nq = 2*N_-p_+1;
+
+//    // new knot vector
+//    Eigen::ArrayXd knots = Eigen::ArrayXd::Zero(2*N_+p_);
+//    knots.tail(k) = Eigen::ArrayXd::Ones(k) * T_(iq+1);
+
+//    // new control points
+//    Eigen::MatrixX3d b = weighted_control_points_ / k;
+//    Eigen::MatrixX3d d(2*N_-2, 3);
+//    for (int i=0; i<=p_; i++) {
+//        d.row(2*N_-p_-i) = b.row(N_-i-1) * (k-i);
+//    }
+
+//    Eigen::VectorXd test_t = knots.matrix();
+
+
+//    int j = nq, i = iq;
+//    while (i > ip+p_) {
+//        int j0 = j, i0 = i;
+
+//        // skip multiple knots
+//        while (T_(i) == T_(i-1)) {
+//            knots(j--) = T_(i--);
+//        }
+
+//        knots(j) = T_(i);
+//        knots(j-1) = T_(i);
+
+//        knots = Eigen::ArrayXd::Zero(2*N_+p_);
+//        knots << 0, 0, 0, 0, 0, 0.5, 0.5, 0.5, 1, 1, 1, 1, 1;
+
+//        int delta = j-i, m = j0 - j + 1, a = 1;
+
+//        for (int l = j-k; l<j0-k; l++) {
+//            d.row(l-1) = (a++) * b.row(l-delta);
+//        }
+//        d.row(j0-k) = d.row(j0-p_) + m*b.row(i0-p_);
+
+//        for (int l = j0-p_+1; l<=j-1; l++) {
+//            double alpha = (double)(knots(j0) - T_(l-delta)) / (knots(l-k)-T_(l-delta));
+//            d.row(l-1) = (1-alpha)*(d.row(l-1)+b.row(l-delta)) - alpha*d.row(delta) + m*b.row(l-delta);
+//        }
+//        a=m;
+//        for (int l=j; l<j0; l++) {
+//            d.row(l-1) -= (a--)*b.row(l-delta);
+//        }
+//        for (int l=i-1; l>=i0-p_+1; l--) {
+//            double beta = (double)(knots(j0) - T_(l)) / (knots(l+p_+delta)-T_(delta));
+//            b.row(l) = (1-beta)*b.row(l-1) + beta*b.row(l);
+//        }
+//        j-=2; i--;
+//    }
+//    np = j-k; int a=1;
+//    for (int l=p_; l>=1; l--) {
+//        d.row(np+l) = d.row(np+l)+(a++)*b.row(l);
+//        knots(np+l+1) = T_(ip+p_);
+//    }
+//    d.row(np) = k*b.row(ip);
+//    knots(np+1) = T_(ip+1);
+
+//    knots = Eigen::ArrayXd::Zero(2*N_+p_);
+//    knots << 0, 0, 0, 0, 0, 0.5, 0.5, 0.5, 1, 1, 1, 1, 1;
+
+//    Eigen::MatrixX3d test_points = d;
+//    test_t = knots.matrix();
+//    Curve test_curve = Curve(d.bottomRows(nq-np), knots, k);
+
+//    weighted_control_points_ = d.bottomRows(nq-np);
+//    N_ = weighted_control_points_.rows();
+//    p_ = k;
+//    T_ = knots.tail(N_+p_+1);
+
+//    spans_.clear();
+//    for (uint i=0; i<N_-p_; i++) {
+//        spans_.emplace_back(Span(weighted_control_points_.middleRows(i, p_+1),
+//                           T_.segment(i+1, 2*p_),
+//                           T_(i+p_), T_(i+p_+1), p_));
+//    }
+
+//    resetCache();
+//}
+
 
 void Curve::lowerOrder() {
     resetCache();
