@@ -3,7 +3,6 @@
 #include <numeric>
 #include <limits>
 
-#include <unsupported/Eigen/FFT>
 #include <unsupported/Eigen/MatrixFunctions>
 #include <unsupported/Eigen/Polynomials>
 
@@ -290,94 +289,6 @@ void Curve::elevateOrder(uint t) {
     resetCache();
 }
 
-//void Curve::elevateOrder() {
-//    // new order
-//    int k = p_+1;
-
-//    int ip = 0, iq = N_;
-//    int np = 0, nq = 2*N_-p_+1;
-
-//    // new knot vector
-//    Eigen::ArrayXd knots = Eigen::ArrayXd::Zero(2*N_+p_);
-//    knots.tail(k) = Eigen::ArrayXd::Ones(k) * T_(iq+1);
-
-//    // new control points
-//    Eigen::MatrixX3d b = weighted_control_points_ / k;
-//    Eigen::MatrixX3d d(2*N_-2, 3);
-//    for (int i=0; i<=p_; i++) {
-//        d.row(2*N_-p_-i) = b.row(N_-i-1) * (k-i);
-//    }
-
-//    Eigen::VectorXd test_t = knots.matrix();
-
-
-//    int j = nq, i = iq;
-//    while (i > ip+p_) {
-//        int j0 = j, i0 = i;
-
-//        // skip multiple knots
-//        while (T_(i) == T_(i-1)) {
-//            knots(j--) = T_(i--);
-//        }
-
-//        knots(j) = T_(i);
-//        knots(j-1) = T_(i);
-
-//        knots = Eigen::ArrayXd::Zero(2*N_+p_);
-//        knots << 0, 0, 0, 0, 0, 0.5, 0.5, 0.5, 1, 1, 1, 1, 1;
-
-//        int delta = j-i, m = j0 - j + 1, a = 1;
-
-//        for (int l = j-k; l<j0-k; l++) {
-//            d.row(l-1) = (a++) * b.row(l-delta);
-//        }
-//        d.row(j0-k) = d.row(j0-p_) + m*b.row(i0-p_);
-
-//        for (int l = j0-p_+1; l<=j-1; l++) {
-//            double alpha = (double)(knots(j0) - T_(l-delta)) / (knots(l-k)-T_(l-delta));
-//            d.row(l-1) = (1-alpha)*(d.row(l-1)+b.row(l-delta)) - alpha*d.row(delta) + m*b.row(l-delta);
-//        }
-//        a=m;
-//        for (int l=j; l<j0; l++) {
-//            d.row(l-1) -= (a--)*b.row(l-delta);
-//        }
-//        for (int l=i-1; l>=i0-p_+1; l--) {
-//            double beta = (double)(knots(j0) - T_(l)) / (knots(l+p_+delta)-T_(delta));
-//            b.row(l) = (1-beta)*b.row(l-1) + beta*b.row(l);
-//        }
-//        j-=2; i--;
-//    }
-//    np = j-k; int a=1;
-//    for (int l=p_; l>=1; l--) {
-//        d.row(np+l) = d.row(np+l)+(a++)*b.row(l);
-//        knots(np+l+1) = T_(ip+p_);
-//    }
-//    d.row(np) = k*b.row(ip);
-//    knots(np+1) = T_(ip+1);
-
-//    knots = Eigen::ArrayXd::Zero(2*N_+p_);
-//    knots << 0, 0, 0, 0, 0, 0.5, 0.5, 0.5, 1, 1, 1, 1, 1;
-
-//    Eigen::MatrixX3d test_points = d;
-//    test_t = knots.matrix();
-//    Curve test_curve = Curve(d.bottomRows(nq-np), knots, k);
-
-//    weighted_control_points_ = d.bottomRows(nq-np);
-//    N_ = weighted_control_points_.rows();
-//    p_ = k;
-//    T_ = knots.tail(N_+p_+1);
-
-//    spans_.clear();
-//    for (uint i=0; i<N_-p_; i++) {
-//        spans_.emplace_back(Span(weighted_control_points_.middleRows(i, p_+1),
-//                           T_.segment(i+1, 2*p_),
-//                           T_(i+p_), T_(i+p_+1), p_));
-//    }
-
-//    resetCache();
-//}
-
-
 void Curve::lowerOrder() {
     resetCache();
 }
@@ -484,45 +395,7 @@ Vector Curve::derivativeAt(unsigned n, double t) const
   const Span &sp = getKnotSpan(t);
   double u = (t - sp.start_t_)/(sp.end_t_ - sp.start_t_);
 
-  // temporary solution
-
-  Eigen::RowVectorXd pw   = _powSeries(u, p_);
-  Eigen::RowVectorXd pwd1 = _powSeriesDerivative(u, p_, 1);
-  Eigen::RowVectorXd pwd2 = _powSeriesDerivative(u, p_, 2);
-  Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 3);
-
-  Eigen::MatrixX2d r = sp.cached_vbf_;
-  Eigen::VectorXd s = sp.cached_wbf_;
-
-  Eigen::RowVector2d ru = pw * r;
-  double su = pw.dot(s);
-
-  // derivatives of 1/S(u) in point t
-  double d1su = - pwd1.dot(s)/pow(su, 2);
-
-  double d2su = - pwd2.dot(s) / pow(su, 2)
-                + 2*pow(pwd1.dot(s), 2)/pow(su, 3);
-
-  double d3su = - (pwd3.dot(s) / pow(su, 2))
-                + 4*(pwd1.dot(s)*pwd2.dot(s)/pow(su, 3))
-                - 6*(pow(pwd1.dot(s), 3)/pow(su, 4));
-
-  switch (n) {
-  case 1:
-      return ru * d1su
-             + (pwd1 * r) / su;
-  case 2:
-      return ru * d2su
-             + 2*(pwd1 * r)*d1su
-             + (pwd2 * r)/su;
-  case 3:
-      return ru * d3su
-             + 3*(pwd1 * r)*d2su
-             + 3*(pwd2 * r)*d1su
-             + (pwd3 * r)/su;
-  default:
-      return sp.valueAt(u);
-  }
+  return sp.derivativeAt(n, u);
 }
 
 Vector Curve::derivativeAt(double t) const
@@ -982,83 +855,28 @@ Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const
 
 double Curve::length(double t) const
 {
-  if (t < 0.0 || t > 1.0)
-    throw std::logic_error{"Length can only be calculated for t within [0.0, 1.0] range."};
 
-  auto evaluate_chebyshev = [](double t, const Eigen::VectorXd& coeff) {
-    t = 2 * t - 1;
-    double tn{t}, tn_1{1}, res{coeff(0) + coeff(1) * t};
-    for (unsigned k = 2; k < coeff.size(); k++)
-    {
-      std::swap(tn_1, tn);
-      tn = 2 * t * tn_1 - tn;
-      res += coeff(k) * tn;
+    if (t == 0.0) return 0.0;
+
+    int ix = 0;
+    double len = 0.0;
+
+    for (Span& sp: spans_) {
+        len += sp.length();
     }
-    return res;
-  };
 
-  if (!cached_chebyshev_coeffs_)
-  {
-    constexpr unsigned START_LOG_N = 10;
-    unsigned log_n = START_LOG_N - 1;
-    unsigned n = _exp2(START_LOG_N - 1);
-
-    Eigen::VectorXd derivative_cache(2 * n + 1);
-    auto updateDerivativeCache = [this, &derivative_cache](double n) {
-      derivative_cache.conservativeResize(n + 1);
-      derivative_cache.tail(n / 2) =
-          ((1 + Eigen::cos(Eigen::ArrayXd::LinSpaced(n / 2, 1, n - 1) * M_PI / n)) / 2).unaryExpr([this](double t) {
-            return derivativeAt(t).norm();
-          });
-    };
-
-    derivative_cache.head(2) << derivativeAt(1.0).norm(), derivativeAt(0.0).norm();
-    for (unsigned k = 2; k <= n; k *= 2)
-      updateDerivativeCache(k);
-
-    Eigen::VectorXd chebyshev;
-    Eigen::FFT<double> fft;
-    Eigen::VectorXcd fft_out;
-    do
-    {
-      n *= 2;
-      log_n++;
-      updateDerivativeCache(n);
-
-      unsigned N = 2 * n;
-      Eigen::VectorXd coeff(N);
-      coeff(0) = derivative_cache(0);
-      coeff(n) = derivative_cache(1);
-
-      for (unsigned k = 1; k <= log_n; k++)
-      {
-        auto lin_spaced = Eigen::ArrayXi::LinSpaced(_exp2(k - 1), 0, _exp2(k - 1) - 1);
-        auto index_c = _exp2(log_n + 1 - (k + 1)) + lin_spaced * _exp2(log_n + 1 - k);
-        auto index_dc = _exp2(k - 1) + 1 + lin_spaced;
-        // TODO: make use of slicing & indexing in Eigen3.4
-        // coeff(index_c) = coeff(N - index_c) = derivative_cache(index_dc) / n;
-        for (unsigned i = 0; i < lin_spaced.size(); i++)
-          coeff(index_c(i)) = coeff(N - index_c(i)) = derivative_cache(index_dc(i)) / n;
-      }
-
-      fft.fwd(fft_out, coeff);
-      chebyshev = (fft_out.real().head(n - 1) - fft_out.real().segment(2, n - 1)).array() /
-                  Eigen::ArrayXd::LinSpaced(n - 1, 4, 4 * (n - 1));
-    } while (std::fabs(chebyshev.tail<1>()[0]) > _epsilon * 1e-2);
-
-    unsigned cut = 0;
-    while (std::fabs(chebyshev(cut)) > _epsilon * 1e-2)
-      cut++;
-    cached_chebyshev_coeffs_ = std::make_unique<Eigen::VectorXd>(cut + 1);
-    (*cached_chebyshev_coeffs_) << 0, chebyshev.head(cut);
-    (*cached_chebyshev_coeffs_)(0) = -evaluate_chebyshev(0, *cached_chebyshev_coeffs_);
-  }
-  return evaluate_chebyshev(t, *cached_chebyshev_coeffs_);
+    return len;
 }
 
 double Curve::length() const
 {
-  return length(1.0);
+    double out = 0.0;
+      PointVector poly = polyline();
+      for(int i=0; i<poly.size()-1; i++) {
+        out += std::sqrt(pow(poly[i](0)-poly[i+1](0), 2) + pow(poly[i](1)-poly[i+1](1), 2));
+      }
+      return out;
+//    return length(1.0);
 }
 
 void Curve::removeKnot(int ix, int k)

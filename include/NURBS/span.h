@@ -5,6 +5,8 @@
 #include "utils.h"
 #include <memory>
 
+#include <unsupported/Eigen/FFT>
+
 namespace NURBS {
 
 class Span
@@ -27,12 +29,21 @@ public:
     Eigen::MatrixXd getBasisFunction() const;
     PointVector polyline() const;
     Point valueAt(double u) const;
+    Point derivativeAt(int n, double u) const;
+    Point derivativeAt(double u) const;
     Eigen::MatrixXd basis_function_;
     uint p_;
     /// Reset all privately cached data
     void resetCache();
+    double length(double t) const;
+    double length() const;
+
+
 private:
     mutable std::optional<PointVector> cached_polyline_;
+    mutable std::optional<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
+                                                                          for calculating the length of the curve */
+
 };
 }
 

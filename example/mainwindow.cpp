@@ -1,10 +1,10 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "curvelistwidgetitem.h"
 
 #include <QDebug>
 #include <chrono>
 #include <iostream>
-#include "curvelistwidgetitem.h"
 #include <QStatusBar>
 
 MainWindow::MainWindow(QWidget* parent)
@@ -42,10 +42,22 @@ MainWindow::MainWindow(QWidget* parent)
   auto split = curve2.splitCurve(0.4);
   auto join = curve1.join(curve2);
 
-  curve1.applyContinuity(curve2, {1, 0, 0});
+//  curve1.applyContinuity(curve2, {1, 0, 0});
+
+  Eigen::MatrixX2d test(5, 2);
+  test << 0, 200,
+          100, 200,
+          200, 200,
+          300, 200,
+          400, 200;
+  NURBS::Curve testcurve(test, 1);
+
+  std::cout << curve1.length() << std::endl;
+  std::cout << curve1.length(1.0) << std::endl;
 
   addCurveToScene(curve1);
   addCurveToScene(curve2);
+  addCurveToScene(testcurve);
 
 //  addCurveToScene(join);
 //  addCurveToScene(split.first);
