@@ -1156,3 +1156,45 @@ Curve Curve::join(Curve &other)
 
     return Curve(points.leftCols(2), p_);
 }
+
+void Curve::applyContinuity(const Curve& source_curve, const std::vector<double>& beta_coeffs)
+{
+  unsigned c_order = beta_coeffs.size();
+
+  Eigen::MatrixXd pascal_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
+  Eigen::MatrixXd pascal_alterating_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
+  pascal_alterating_matrix.diagonal(-1).setLinSpaced(-1, -static_cast<int>(c_order));
+  pascal_alterating_matrix = pascal_alterating_matrix.exp();
+  pascal_matrix = pascal_alterating_matrix.cwiseAbs().transpose();
+
+  Eigen::MatrixXd bell_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
+  bell_matrix(0, c_order) = 1;
+
+  for (unsigned k = 0; k < c_order; k++)
+    bell_matrix.block(1, c_order - k - 1, k + 1, 1) =
+        bell_matrix.block(0, c_order - k, k + 1, k + 1) *
+        pascal_matrix.block(0, k, k + 1, 1)
+            .cwiseProduct(Eigen::Map<const Eigen::MatrixXd>(beta_coeffs.data(), k + 1, 1));
+
+  Eigen::MatrixXd factorial_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
+
+  factorial_matrix.diagonal() = Eigen::ArrayXd::LinSpaced(c_order + 1, 0, c_order).unaryExpr([this](unsigned k) {
+    // (N-1)! / (N-k-1)! = e^(ln(N-1)! - ln(N-k-1)!)
+    return std::exp(std::lgamma(N_) - std::lgamma(N_ - k));
+  });
+
+  Eigen::Matrix2Xd derivatives(Eigen::Index(2), Eigen::Index(c_order + 1));
+  for (unsigned k = 0; k < c_order + 1; k++)
+    derivatives.col(k) = source_curve.derivativeAt(k, 1.0);
+
+  Eigen::MatrixXd derivatives_wanted = (derivatives * bell_matrix).rowwise().reverse().transpose();
+
+  weighted_control_points_.topRows(c_order + 1).leftCols(2) = (factorial_matrix * pascal_alterating_matrix).inverse() * derivatives_wanted;
+  resetCache();
+}
+
+
+
+
+
+

@@ -267,6 +267,7 @@ public:
   void removeKnot(int ix, int k=1);
   void removeControlPoint(int ix);
   Curve join(Curve &other);
+  void applyContinuity(const Curve& source_curve, const std::vector<double>& beta_coeffs);
 
 protected:
   /*!

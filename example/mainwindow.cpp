@@ -42,8 +42,11 @@ MainWindow::MainWindow(QWidget* parent)
   auto split = curve2.splitCurve(0.4);
   auto join = curve1.join(curve2);
 
+  curve1.applyContinuity(curve2, {1, 0, 0});
+
   addCurveToScene(curve1);
   addCurveToScene(curve2);
+
 //  addCurveToScene(join);
 //  addCurveToScene(split.first);
 //  addCurveToScene(split.second);
