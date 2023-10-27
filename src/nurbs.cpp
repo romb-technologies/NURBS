@@ -855,7 +855,7 @@ Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const
 
 double Curve::length(double t) const
 {
-
+    // analytic
     if (t == 0.0) return 0.0;
 
     int ix = 0;
@@ -870,13 +870,14 @@ double Curve::length(double t) const
 
 double Curve::length() const
 {
+    // polyline
     double out = 0.0;
-      PointVector poly = polyline();
-      for(int i=0; i<poly.size()-1; i++) {
+    PointVector poly = polyline();
+    for(int i=0; i<poly.size()-1; i++) {
         out += std::sqrt(pow(poly[i](0)-poly[i+1](0), 2) + pow(poly[i](1)-poly[i+1](1), 2));
-      }
-      return out;
-//    return length(1.0);
+    }
+    return out;
+    //    return length(1.0);
 }
 
 void Curve::removeKnot(int ix, int k)

@@ -43,7 +43,9 @@ private:
     mutable std::optional<PointVector> cached_polyline_;
     mutable std::optional<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
                                                                           for calculating the length of the curve */
+    mutable std::optional<double> cached_length_;
 
+    static double evaluate_chebyshev(double t, const Eigen::VectorXd& coeff);
 };
 }
 

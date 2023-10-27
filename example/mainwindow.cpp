@@ -37,7 +37,7 @@ MainWindow::MainWindow(QWidget* parent)
   NURBS::Curve curve2(cp2 * 5);
 
   curve1.appendPoint({600, 1000});
-//  curve2.insertKnot(0.25, 3);
+  curve1.insertKnot(0.25, 1);
 //  curve2.removeKnot(4, 3);
   auto split = curve2.splitCurve(0.4);
   auto join = curve1.join(curve2);
@@ -52,12 +52,37 @@ MainWindow::MainWindow(QWidget* parent)
           400, 200;
   NURBS::Curve testcurve(test, 1);
 
-  std::cout << curve1.length() << std::endl;
-  std::cout << curve1.length(1.0) << std::endl;
+  auto start = std::chrono::steady_clock::now();
+  volatile auto len = curve1.length();
+  auto end = std::chrono::steady_clock::now();
+  std::chrono::duration<double> elapsed_seconds = end - start;
+  std::cout << "basic: " << elapsed_seconds.count() << "\n";
+
+  start = std::chrono::steady_clock::now();
+  len = curve1.length(1.0);
+  end = std::chrono::steady_clock::now();
+  elapsed_seconds = end - start;
+  std::cout << "matrix: " << elapsed_seconds.count() << "\n";
+
+  printf("length1: %.20f\nlength2: %.20f\n", curve1.length(), curve1.length(1.0));
 
   addCurveToScene(curve1);
   addCurveToScene(curve2);
   addCurveToScene(testcurve);
+
+
+  start = std::chrono::steady_clock::now();
+  len = curve1.length();
+  end = std::chrono::steady_clock::now();
+  elapsed_seconds = end - start;
+  std::cout << "basic: " << elapsed_seconds.count() << "\n";
+
+  start = std::chrono::steady_clock::now();
+  len = curve1.length(1.0);
+  end = std::chrono::steady_clock::now();
+  elapsed_seconds = end - start;
+  std::cout << "matrix: " << elapsed_seconds.count() << "\n";
+
 
 //  addCurveToScene(join);
 //  addCurveToScene(split.first);
