@@ -140,22 +140,22 @@ void Curve::elevateOrder(uint t) {
             ebpts(p_+t+1, 3),
             Nextbpts(p_+1, 3);
 
-    Eigen::MatrixX3d new_wpoints(2*N_, 3);
+    Eigen::MatrixX3d new_wpoints(N_+2*t, 3);
     Eigen::ArrayXd new_t(2*N_+new_p+1);
     
     /* Compute Bezier degree elevation coefficients */
     bezalfs(0, 0) = bezalfs(new_p, p_) = 1.0;
-    for (uint i=1; i<=new_p/2; i++)
+    for (int i=1; i<=new_p/2; i++)
     {
         double inv = 1.0/Bin(new_p,i);
-        uint mpi = std::min(p_,i);
-        for (uint j=std::max(i-t, 0U); j<=mpi; j++)
+        int mpi = std::min((int)p_,i);
+        for (int j=std::max(i-(int)t, 0); j<=mpi; j++)
             bezalfs(i, j) = inv*Bin(p_,j)*Bin(t,i-j);
     }
-    for (uint i=new_p/2+1; i<=new_p-1; i++)
+    for (int i=new_p/2+1; i<=new_p-1; i++)
     {
-        uint mpi = std::min(p_,i);
-        for (uint j=std::max(0U, i-t); j<=mpi; j++)
+        int mpi = std::min((int)p_,i);
+        for (int j=std::max(i-(int)t, 0); j<=mpi; j++)
             bezalfs(i, j) = bezalfs(new_p-i, p_-j);
     }
     int new_m = new_p+1, kind = new_p+1, a = p_, r = -1,
@@ -172,7 +172,8 @@ void Curve::elevateOrder(uint t) {
         int mul = getKnotMultiplicity(T_(b));
         b += mul - 1;
         new_m += mul+t;
-        double ub = T_(b);
+        new_t.conservativeResize(new_m);
+        ub = T_(b);
         int oldr = r;
         r = p_-mul;
         int lbz, rbz;
@@ -200,12 +201,12 @@ void Curve::elevateOrder(uint t) {
             }
         } /* End of "insert knot" */
 
-        for (uint i=lbz; i<=new_p; i++)
+        for (int i=lbz; i<=new_p; i++)
             /* Degree elevate Bezier */
         { /* Only points lbz, ... ,ph are used below */
             ebpts.row(i) = Eigen::Vector3d(0.0, 0.0, 0.0);
-            int mpi = std::min(p_,i);
-            for (int j=std::max(0U, i-t); j<=mpi; j++)
+            int mpi = std::min(int(p_),i);
+            for (int j=std::max(0, i-(int)t); j<=mpi; j++)
                 ebpts.row(i) = ebpts.row(i) + bezalfs(i, j)*bpts.row(j);
         } /* End of degree elevating Bezier */
 
@@ -213,8 +214,8 @@ void Curve::elevateOrder(uint t) {
         { /* Must remove knot u=U[a] oldr times */
             int first = kind-2;
             int last = kind;
-            int den = ub-ua;
-            int bet = (ub-new_t(kind-1))/den;
+            double den = ub-ua;
+            double bet = (ub-new_t(kind-1))/den;
             for (int tr=1; tr<oldr; tr++)
             { /* Knot removal loop */
                 int i = first;
@@ -274,7 +275,7 @@ void Curve::elevateOrder(uint t) {
     int new_n = new_m-new_p-1;
     Eigen::VectorXd test_t = new_t.matrix();
 
-    weighted_control_points_ = new_wpoints.topRows(new_n);
+    weighted_control_points_ = new_wpoints;
     N_ = new_n;
     p_ = new_p;
     T_ = new_t.head(new_m);
@@ -542,7 +543,9 @@ double Curve::projectPoint(const Point &point) const
 
         std::vector<double> candidates;
         Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-        poly_solver.compute(_trimZeroes(poly));
+        auto trim = _trimZeroes(poly);
+        if (trim.size() > 0)
+            poly_solver.compute(trim);
         poly_solver.realRoots(candidates);
         candidates.emplace_back(1.0);
 
