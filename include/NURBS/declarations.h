@@ -4,8 +4,19 @@
 #include <Eigen/Dense>
 #include <vector>
 
-namespace NURBS {
-
+/*!
+ * Nominal namespace containing class pre-definitions and typedefs
+ */
+namespace NURBS
+{
+/*!
+ * \brief A NURBS curve class
+ *
+ * A class for storing and using any-order NURBS curve.
+ * It uses private and static caching for storing often accessed data.
+ * Private caching is used for data concerning individual curves, while
+ * static caching is used for common data (coefficient matrices)
+ */
 class Curve;
 
 /*!

@@ -1,9 +1,5 @@
 #include "NURBS/span.h"
 
-#include <chrono>
-#include <iostream>
-
-
 using namespace NURBS;
 
 ///// Curve::Span
@@ -80,7 +76,6 @@ void Span::update()
 void Span::updateControlPoints()
 {
     // generate w_bf, v_bf
-    Eigen::MatrixX3d test = wpoints_;
     cached_vbf_ = basis_function_ * wpoints_.leftCols<2>();
     cached_wbf_ = basis_function_ * wpoints_.col(2);
 }
@@ -105,6 +100,7 @@ void Span::resetCache() {
     cached_polyline_.reset();
     start_t_ = knots(p_-1);
     end_t_ = knots(p_);
+    updateControlPoints();
 }
 
 Point Span::derivativeAt(int n, double u) const
@@ -175,24 +171,11 @@ double Span::length(double t) const
                     .unaryExpr([this](double t) {
                 return derivativeAt(t).norm();
             });
-
-//            auto end = std::chrono::steady_clock::now();
-//            std::chrono::duration<double> elapsed_seconds = end - start;
-//            std::cout << "update_cache: " << elapsed_seconds.count() << "\n";
         };
-
-
-//        auto start = std::chrono::steady_clock::now();
 
         derivative_cache.head(2) << derivativeAt(1.0).norm(), derivativeAt(0.0).norm();
         for (unsigned k = 2; k <= n; k *= 2)
             updateDerivativeCache(k);
-
-//        auto end = std::chrono::steady_clock::now();
-//        std::chrono::duration<double> elapsed_seconds = end - start;
-//        std::cout << "step 1: " << elapsed_seconds.count() << "\n";
-
-//        start = std::chrono::steady_clock::now();
 
         Eigen::VectorXd chebyshev;
         Eigen::FFT<double> fft;
@@ -224,23 +207,12 @@ double Span::length(double t) const
                     Eigen::ArrayXd::LinSpaced(n - 1, 4, 4 * (n - 1));
         } while (std::fabs(chebyshev.tail<1>()[0]) > _epsilon * 1e-2);
 
-//        end = std::chrono::steady_clock::now();
-//        elapsed_seconds = end - start;
-//        std::cout << "step 2 (while loop): " << elapsed_seconds.count() << "\n";
-
-//        start = std::chrono::steady_clock::now();
-
         unsigned cut = 0;
         while (std::fabs(chebyshev(cut)) > _epsilon * 1e-2)
             cut++;
         cached_chebyshev_coeffs_ = Eigen::VectorXd(cut + 1);
         *cached_chebyshev_coeffs_ << 0, chebyshev.head(cut);
         (*cached_chebyshev_coeffs_)(0) = -evaluate_chebyshev(0, *cached_chebyshev_coeffs_);
-
-//        end = std::chrono::steady_clock::now();
-//        elapsed_seconds = end - start;
-//        std::cout << "step 3: " << elapsed_seconds.count() << "\n";
-//        std::cout << "-------" << std::endl;
     }
     return evaluate_chebyshev(t, *cached_chebyshev_coeffs_);
 }
@@ -263,3 +235,6 @@ double Span::evaluate_chebyshev(double t, const Eigen::VectorXd& coeff)
   return res;
 }
 
+Eigen::RowVectorXd Span::getCachedWBF() const { return cached_wbf_; }
+
+Eigen::MatrixXd Span::getCachedVBF() const { return cached_vbf_; }

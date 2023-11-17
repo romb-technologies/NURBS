@@ -60,9 +60,14 @@ Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd &poly1, const Eigen::
     return result;
 }
 
-double dist(Point first, Point second)
+double _dist(Point first, Point second)
 {
     return std::sqrt(std::pow(first.x() - second.x(), 2) + std::pow(first.y() - second.y(), 2));
+}
+
+double _distSquared(Point first, Point second)
+{
+    return std::pow(first.x() - second.x(), 2) + std::pow(first.y() - second.y(), 2);
 }
 
 }

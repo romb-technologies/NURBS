@@ -1,4 +1,6 @@
 html/
 latex/
 build*/
+docs/
 *.user
+example/example

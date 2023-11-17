@@ -3,36 +3,60 @@
 
 #include <map>
 #include <memory>
-#include <iostream>
+#include <numeric>
+#include <limits>
+
 #include "NURBS/declarations.h"
 #include "NURBS/span.h"
-#include "utils.h"
+#include "NURBS/utils.h"
+
+#include <unsupported/Eigen/MatrixFunctions>
+#include <unsupported/Eigen/Polynomials>
 
 namespace NURBS {
 
-
+/*!
+ * \brief A NURBS curve class
+ *
+ * A class for storing and using any-order NURBS curve.
+ * It uses private and static caching for storing often accessed data.
+ * Private caching is used for data concerning individual curves, while
+ * static caching is used for common data (coefficient matrices)
+ */
 class Curve
 {
 public:
   ~Curve() = default;
 
   /*!
-   * \brief Create a NURBS curve
-   * \param points Nx2 matrix where each row is one of N control points that define the curve
+   * \brief Create a NURBS curve of order \c p based on an array of control points.
+   * \param points Nx2 matrix where each row is one of N control points that define the curve.
+   * \param p Order of the curve, defaults to 3.
+   *
+   * Creates a new NURBS curve based on a Nx2 matrix of points.
+   * Its weights are all set to 1 by default, \c N is automatically set to be the
+   * number of points in the array. \c N must be higher or equal to \c p+1.
+   * The knot vector is automatically set to consist of equally spaced knots.
    */
   Curve(Eigen::MatrixX2d points, int p=3);
 
   /*!
-   * \brief Create a NURBS curve
-   * \param points A vector of control points that define the curve
+   * \brief Create a NURBS curve of order \c p based on an array of control points.
+   * \param points A std::vector of N control points that define the curve.
+   * \param p Order of the curve, defaults to 3.
+   *
+   * Creates a new NURBS curve based on a std::vector of points.
+   * Its weights are all set to 1 by default, \c N is automatically set to be the
+   * number of points in the vector. \c N must be higher or equal to \c p+1.
+   * The knot vector is automatically set to consist of equally spaced knots.
    */
   Curve(const PointVector& points, int p=3);
 
   /*!
-   * \brief Create a NURBS curve
-   * \param points Nx3 matrix where each row is one of N weighted control points that define the curve
-   * \param knotvector Array of knots in ascending order, must be of length N+p+1
-   * \param p Order of the curve
+   * \brief Create a NURBS curve with defined weighted control points, knot vector and order.
+   * \param points Nx3 matrix where each row is one of N weighted control points that define the curve.
+   * \param knotvector Array of knots in ascending order, must be of length N+p+1.
+   * \param p Order of the curve, defaults to 3.
    */
   Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p=3);
 
@@ -43,13 +67,14 @@ public:
   Curve& operator=(Curve&&) = default;
 
   /*!
-   * \brief Get order of the curve;
-   * \return Order of curve
+   * \brief Get the order of the curve;
+   * \return Order of the curve
    */
   unsigned order() const;
 
   /*!
-   * \brief Raise the curve order by 1
+   * \brief Raise the curve order by \c t
+   * \param t Number of orders, defaults to 1.
    *
    * Curve will always retain its shape
    * \warning Resets cached data
@@ -72,7 +97,7 @@ public:
   PointVector controlPoints() const;
 
   /*!
-   * \brief Get the control point at index idx
+   * \brief Get the control point at index \c idx
    * \param idx Index of chosen control point
    * \return Control point
    */
@@ -104,9 +129,9 @@ public:
   PointVector polyline(double flatness = 0.5) const;
 
   /*!
-   * \brief Get the point on curve for a given t
+   * \brief Get the point on this curve for a given \c t
    * \param t Curve parameter
-   * \return Point on a curve for a given t
+   * \return Point on a curve for a given \c t
    */
   Point valueAt(double t) const;
 
@@ -130,7 +155,7 @@ public:
   const Curve& derivative() const;
 
   /*!
-   * \brief Get the nth derivative of a curve
+   * \brief Get the \c n-th derivative of a curve
    * \param n Desired number of derivative
    * \return Derivative curve
    * \warning double n cannot be zero
@@ -138,17 +163,17 @@ public:
   const Curve& derivative(unsigned n) const;
 
   /*!
-   * \brief Get value of a derivative for a given t
+   * \brief Get value of a derivative for a given \c t
    * \param t Curve parameter
-   * \return Curve derivative at t
+   * \return Curve derivative at \c t
    */
   Vector derivativeAt(double t) const;
 
   /*!
-   * \brief Get value of an nth derivative for a given t
+   * \brief Get value of an \c n-th derivative for a given \c t
    * \param n Desired number of derivative
    * \param t Curve parameter
-   * \return nth curve derivative at t
+   * \return \c n-th curve derivative at \c t
    */
   Vector derivativeAt(unsigned n, double t) const;
 
@@ -165,53 +190,58 @@ public:
   std::vector<double> extrema() const;
 
   /*!
-   * \brief Get curvature of the curve for a given t
+   * \brief Get curvature of the curve for a given \c t
    * \param t Curve parameter
-   * \return Curvature of a curve for a given t
+   * \return Curvature of a curve for a given \c t
    */
   double curvatureAt(double t) const;
 
   /*!
-   * \brief Get curvature derivative of the curve for a given t
+   * \brief Get curvature derivative of the curve for a given \c t
    * \param t Curve parameter
-   * \return Curvature derivative of a curve for a given t
+   * \return Curvature derivative of a curve for a given \c t
    */
   double curvatureDerivativeAt(double t) const;
 
   /*!
-   * \brief Get the tangent of the curve for a given t
+   * \brief Get the tangent of the curve for a given \c t
    * \param t Curve parameter
    * \param normalize If the resulting tangent should be normalized
-   * \return Tangent of a curve for a given t
+   * \return Tangent of a curve for a given \c t
    */
   Vector tangentAt(double t, bool normalize = true) const;
 
   /*!
-   * \brief Get the normal of the curve for a given t
+   * \brief Get the normal of the curve for a given \c t
    * \param t Curve parameter
    * \param normalize If the resulting normal should be normalized
-   * \return Normal of a curve for given t
+   * \return Normal of a curve for given \c t
    */
   Vector normalAt(double t, bool normalize = true) const;
 
   /*!
-   * \brief Get the parameter t where curve is closest to given point
+   * \brief Get the parameter \c t where curve is closest to given point
    * \param point Point to project on curve
-   * \return double t
+   * \return double \c t
    */
   double projectPoint(const Point& point) const;
 
+  /*!
+   * \brief Get the intersections between this curve and another curve
+   * \param curve Second curve
+   * \return Vector of points where the curves intersect
+   */
   PointVector intersections(const Curve& curve) const;
 
   /*!
-   * \brief Get the weight of the control point at index idx
+   * \brief Get the weight of the control point at index \c idx
    * \param idx Weight index
-   * \return Weight at index idx
+   * \return Weight at index \c idx
    */
   double weight(int idx) const;
 
   /*!
-   * \brief Set the weight of the control point at index idx
+   * \brief Set the weight of the control point at index \c idx
    * \param w New weight
    * \param idx Weight index
    */
@@ -230,43 +260,98 @@ public:
   Eigen::ArrayXd knotVector() const;
 
   /*!
-   * \brief Set the knot at index idx
+   * \brief Set the knot at index \c idx
    * \param value New knot value
    * \param idx Knot index
    */
   void setKnot(int idx, double value);
 
   /*!
-   * \brief Get the knot at index idx
+   * \brief Get the knot at index \c idx
    * \param idx Knot index
    * \return Knot value
    */
   double knot(int idx) const;
 
   /*!
-   * \brief Append a new control point to the end of the curve
+   * \brief Append a new control point to the end of this curve
    * \param point New point
    */
   void appendPoint(Point point);
 
   /*!
-   * \brief Insert a new knot into the curve at parameter t
+   * \brief Insert a new knot into this curve at parameter \c t
    * \param t New knot
    * \param s Multiplicity of knot
    * \param r Number of insertions
    */
   void insertKnot(double t, int r);
 
+  /*!
+   * \brief Split this curve into two new curves at parameter \c t
+   * \param t Where to split the curve
+   * \return Pair of new curves
+   */
   std::pair<Curve, Curve> splitCurve(double t) const;
+
+  /*!
+   * \brief Create a series of Bezier curves that is equivalent to this curve
+   * \return Vector of Bezier curves
+   */
   std::vector<Curve> piecewiseBezier() const;
-  void normalizeKnotVector();
+
+  /*!
+   * \brief Evaluate the basis functions of this curve at parameter \c t
+   * \param t Curve parameter
+   * \return Vector of basis function values
+   */
   Eigen::VectorXd getBasisFunctionsAt(double t) const;
+
+  /*!
+   * \brief Get the index of the span in which parameter \c t lies
+   * \param t Curve parameter
+   * \return Span index
+   */
   int getKnotSpanIndex(double t) const;
+
+  /*!
+   * \brief Evaluate the length of this curve
+   * \return Curve length
+   */
   double length() const;
+
+  /*!
+   * \brief Evaluate the length of this curve from its starting point
+   * up to the point at parameter \c t
+   * \return Curve length up to \c t;
+   */
   double length(double t) const;
+
+  /*!
+   * \brief Remove the \c ix-th knot of this curve \c k times
+   * \param ix Index of knot to be removed
+   * \param k Number of times to remove the knot (must be less or equal to knot's multiplicity, defaults to 1)
+   */
   void removeKnot(int ix, int k=1);
+
+  /*!
+   * \brief Remove the \c ix-th control point of this curve
+   * \param ix Index of control point to be removed
+   */
   void removeControlPoint(int ix);
+
+  /*!
+   * \brief Join this curve with another curve to create a new curve
+   * \param other Reference to second curve
+   * \return New curve that is a result of joining the two curves
+   */
   Curve join(Curve &other);
+
+  /*!
+   * \brief Make this curve continuous with \c source_curve
+   * \param source_curve
+   * \return New curve that is a result of joining the two curves
+   */
   void applyContinuity(const Curve& source_curve, const std::vector<double>& beta_coeffs);
 
 protected:
@@ -276,7 +361,9 @@ protected:
    */
   Eigen::MatrixX3d weighted_control_points_;
 
-  /// Reset all privately cached data
+  /*!
+   * \brief Reset all privately cached data
+   */
   inline void resetCache();
 
 private:
@@ -292,13 +379,15 @@ private:
   mutable double cached_polyline_flatness_{};                 /*! Flatness of cached polyline */
   mutable std::unique_ptr<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
                                                                         for calculating the length of the curve */
-
+  /// Knot vector
   Eigen::ArrayXd T_;
+  /// Knot spans
   mutable std::vector<Span> spans_;
 
 
   Span &getKnotSpan(double t) const;
   int getKnotMultiplicity(double t) const;
+  void normalizeKnotVector();
 };
 
 }

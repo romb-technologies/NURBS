@@ -1,11 +1,5 @@
 #include "NURBS/nurbs.h"
 
-#include <numeric>
-#include <limits>
-
-#include <unsupported/Eigen/MatrixFunctions>
-#include <unsupported/Eigen/Polynomials>
-
 using namespace NURBS;
 
 struct _PolynomialRoots : public std::vector<double>
@@ -18,6 +12,7 @@ struct _PolynomialRoots : public std::vector<double>
       std::vector<double>::push_back(t);
   }
 };
+
 
 ///// Curve::Curve
 
@@ -272,11 +267,8 @@ void Curve::elevateOrder(uint t) {
     for (int i=0; i<=new_p; i++)
         new_t(kind+i) = ub;
 
-    int new_n = new_m-new_p-1;
-    Eigen::VectorXd test_t = new_t.matrix();
-
     weighted_control_points_ = new_wpoints;
-    N_ = new_n;
+    N_ = new_m-new_p-1;
     p_ = new_p;
     T_ = new_t.head(new_m);
 
@@ -290,7 +282,115 @@ void Curve::elevateOrder(uint t) {
     resetCache();
 }
 
-void Curve::lowerOrder() {
+void Curve::lowerOrder()
+{
+    uint new_p = p_-1, new_m = new_p, kind = new_p+1;
+    int r = -1, a = p_, b = p_+1, cind = 1, m = N_+p_+1;
+
+    Eigen::MatrixXd bezalfs(new_p+1, p_+1);
+    Eigen::VectorXd alphas(p_-1);
+    Eigen::MatrixX3d
+            bpts(p_+1, 3),
+            rbpts(p_, 3), // (p - num. of orders + 1)
+            Nextbpts(p_+1, 3);
+
+    Eigen::MatrixX3d new_wpoints(N_, 3);
+    Eigen::ArrayXd new_t(N_+p_);
+
+    new_wpoints.row(0) = weighted_control_points_.row(0);
+    new_t.head(new_p+1) = T_(0);
+    bpts.topRows(p_+1) = weighted_control_points_.topRows(p_+1);
+
+    int lbz, rbz;
+    while (b < m)
+    {
+        int mul = getKnotMultiplicity(T_(b));
+        while (b < m-1 && T_(b) == T_(b+1))
+            b = b+1;
+        new_m += mul+1;
+        int oldr = r;
+        r = p_-mul;
+        if (oldr > 0) lbz = (oldr+2)/2; else lbz = 1;
+        if (r > 0) {
+            double numer = T_(b) - T_(a);
+            for (int k=p_; k>mul; k--)
+                alphas[k-mul-1] = numer/(T_[a+k]-T_[a]);
+            for (int j=1; j<=r; j++)
+            {
+                int save = r-j;
+                int s = mul+j;
+                for (int k=p_; k>=s; k--)
+                    bpts.row(k) = alphas(k-s)*bpts.row(k)
+                            + (1.0-alphas(k-s))*bpts.row(k-1);
+                Nextbpts.row(save) = bpts.row(p_);
+            }
+        }
+        /* Degree reduce Bezier segment */
+        // rbpts = BezDegreeReduce(bpts);
+        Eigen::MatrixXd elevate_order_coeffs = Eigen::MatrixXd::Zero(p_+1, p_);
+        elevate_order_coeffs.diagonal().setLinSpaced(1, 1-(p_+1) / p_);
+        elevate_order_coeffs.diagonal(-1).setLinSpaced(1. / p_, 1);
+
+        Eigen::MatrixXd lower_order_coeffs = (elevate_order_coeffs.transpose() * elevate_order_coeffs).inverse() *
+                elevate_order_coeffs.transpose();
+
+        rbpts = lower_order_coeffs * bpts;
+
+        if (oldr > 0)
+        {
+            int first = kind;
+            int last = kind;
+            int i, j;
+            for (int k=0; k<oldr; k++) {
+                i = first;
+                j = last;
+                int kj = j-kind;
+                while (j-i > k)
+                {
+                    double alfa = (T_(a) - new_t(i-1)) / (T_(b) - new_t(i-1));
+                    double beta = (T_(a) - new_t(j-k-1)) / (T_(b) - new_t(j-k-1));
+                    new_wpoints.row(i-1) -= (1.0-alfa)*new_wpoints.row(i-2)/alfa;
+                    rbpts.row(kj) = (rbpts.row(kj)-beta*rbpts.row(kj+1))/(1.0-beta);
+                    i++; j--; kj--;
+                }
+                first--;
+                last++;
+            } /* End for (k=O; k<oldr; k++) loop */
+            cind = i-1;
+        } /* End if (oldr > 0) */
+        /* Load knot vector and control points */
+        if (a != p_)
+            new_t.segment(kind, new_p-oldr) = T_(a);
+        for (int i=lbz; i<=new_p; i++) {
+            new_wpoints.row(cind++) = rbpts.row(i);
+        }
+        /* Set up for next pass through */
+        if (b < m)
+        {
+            int i;
+            for (i=0; i<r; i++)
+                bpts.row(i) = Nextbpts.row(i);
+            bpts.row(i) = weighted_control_points_.row(b-p_+i);
+            for (int i=r; i<=p_; i++)
+                b++;
+            a = b;
+        }
+    } /* End of while (b < m) loop */
+    for (int i=0; i<=new_p; i++)
+        new_t(kind+i) = T_(b);
+
+    weighted_control_points_ = new_wpoints;
+    N_ = new_m-new_p-1;
+    p_ = new_p;
+    T_ = new_t.head(new_m);
+
+    spans_.clear();
+    for (uint i=0; i<N_-p_; i++) {
+        spans_.emplace_back(Span(weighted_control_points_.middleRows(i, p_+1),
+                                 T_.segment(i+1, 2*p_),
+                                 T_(i+p_), T_(i+p_+1), p_));
+    }
+
     resetCache();
 }
 
@@ -414,7 +514,7 @@ std::vector<double> Curve::roots() const
         Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
         for (int i=0; i<spans_.size(); i++)
         {
-            Eigen::MatrixXd bezier_polynomial = spans_[i].cached_vbf_;
+            Eigen::MatrixXd bezier_polynomial = spans_[i].getCachedVBF();
 
             auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
             auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
@@ -450,15 +550,15 @@ std::vector<double> Curve::extrema() const
 
             // d/du R(u)
             Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_+1, 2);
-            p1.topRows(p_) = (sp.cached_vbf_.array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+            p1.topRows(p_) = (sp.getCachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
 
             // d/du S(u)
             Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_+1);
-            pb.head(p_) = (sp.cached_wbf_.array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+            pb.head(p_) = (sp.getCachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
             Eigen::MatrixX2d poly(2*p_+1, 2);
-            poly.col(0) = - _multiplyPolynomials(pb, sp.cached_vbf_.col(0)) + _multiplyPolynomials(p1.col(0), sp.cached_wbf_);
-            poly.col(1) = - _multiplyPolynomials(pb, sp.cached_vbf_.col(1)) + _multiplyPolynomials(p1.col(1), sp.cached_wbf_);
+            poly.col(0) = - _multiplyPolynomials(pb, sp.getCachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.getCachedWBF());
+            poly.col(1) = - _multiplyPolynomials(pb, sp.getCachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.getCachedWBF());
 
             auto trimmed_x = _trimZeroes(poly.col(0));
             auto trimmed_y = _trimZeroes(poly.col(1));
@@ -528,16 +628,16 @@ double Curve::projectPoint(const Point &point) const
         Eigen::MatrixX2d
                 p1 = Eigen::MatrixXd::Zero(p_+1, 2);
 
-        p1.topRows(p_) = (sp.cached_vbf_.array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+        p1.topRows(p_) = (sp.getCachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
 
         Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_+1);
-        pb.head(p_) = (sp.cached_wbf_.array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+        pb.head(p_) = (sp.getCachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
-        Eigen::MatrixX2d left = sp.cached_vbf_ - (point*sp.cached_wbf_).transpose();
+        Eigen::MatrixX2d left = sp.getCachedVBF() - (point*sp.getCachedWBF()).transpose();
 
         Eigen::MatrixX2d right(2*p_+1, 2);
-        right.col(0) = - _multiplyPolynomials(pb, sp.cached_vbf_.col(0)) + _multiplyPolynomials(sp.cached_wbf_, p1.col(0));
-        right.col(1) = - _multiplyPolynomials(pb, sp.cached_vbf_.col(1)) + _multiplyPolynomials(sp.cached_wbf_, p1.col(1));
+        right.col(0) = - _multiplyPolynomials(pb, sp.getCachedVBF().col(0)) + _multiplyPolynomials(sp.getCachedWBF(), p1.col(0));
+        right.col(1) = - _multiplyPolynomials(pb, sp.getCachedVBF().col(1)) + _multiplyPolynomials(sp.getCachedWBF(), p1.col(1));
 
         Eigen::VectorXd poly = _multiplyPolynomials(left.col(0), right.col(0)) + _multiplyPolynomials(left.col(1), right.col(1));
 
@@ -873,14 +973,7 @@ double Curve::length(double t) const
 
 double Curve::length() const
 {
-    // polyline
-    double out = 0.0;
-    PointVector poly = polyline();
-    for(int i=0; i<poly.size()-1; i++) {
-        out += std::sqrt(pow(poly[i](0)-poly[i+1](0), 2) + pow(poly[i](1)-poly[i+1](1), 2));
-    }
-    return out;
-    //    return length(1.0);
+    return length(1.0);
 }
 
 void Curve::removeKnot(int ix, int k)
@@ -961,11 +1054,11 @@ Curve Curve::join(Curve &other)
     auto ends1 = endPoints();
     auto ends2 = other.endPoints();
 
-    if (dist(ends1.second, ends2.second) < dist(ends1.second, ends2.first))
+    if (_dist(ends1.second, ends2.second) < _dist(ends1.second, ends2.first))
         other.reverse();
-    if (dist(ends1.first, ends2.first) < dist(ends1.second, ends2.first))
+    if (_dist(ends1.first, ends2.first) < _dist(ends1.second, ends2.first))
         this->reverse();
-    if (dist(ends1.first, ends2.second) < dist(ends1.first, ends2.first)) {
+    if (_dist(ends1.first, ends2.second) < _dist(ends1.first, ends2.first)) {
         this->reverse();
         other.reverse();
     }
@@ -1014,9 +1107,6 @@ void Curve::applyContinuity(const Curve& source_curve, const std::vector<double>
   weighted_control_points_.topRows(c_order + 1).leftCols(2) = (factorial_matrix * pascal_alterating_matrix).inverse() * derivatives_wanted;
   resetCache();
 }
-
-
-
 
 
 
