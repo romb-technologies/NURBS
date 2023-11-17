@@ -11,6 +11,9 @@ The project includes an example program to demonstrate the library's features.
 - Piecewise linear representation for drawing
 - And more :smile:
 
+The example program shows how the library can be integrated with Qt, as well as demonstrating 
+most of the library's features interactively.
+
 ## Screenshots
 ![image showing the UI of the example program, with two curves](img/nurbs.png)
 
@@ -27,6 +30,15 @@ cmake ..
 make
 make install
 ```
+
+## Documentation
+Doxygen is required to build the documentation locally.
+
+1. In a terminal inside the project folder, run:
+        ```
+        doxygen
+        ```
+2. Navigate to `docs/html` and open `index.html`
 
 ## Licence
 Apache License Version 2.0
