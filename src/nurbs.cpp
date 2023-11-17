@@ -267,8 +267,8 @@ void Curve::elevateOrder(uint t) {
     for (int i=0; i<=new_p; i++)
         new_t(kind+i) = ub;
 
-    weighted_control_points_ = new_wpoints;
     N_ = new_m-new_p-1;
+    weighted_control_points_ = new_wpoints.topRows(N_);
     p_ = new_p;
     T_ = new_t.head(new_m);
 
