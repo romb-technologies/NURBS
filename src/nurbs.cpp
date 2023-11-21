@@ -288,7 +288,7 @@ void Curve::lowerOrder()
   while (b < m)
   {
     int mul = getKnotMultiplicity(T_(b));
-    while (b < m - 1 && T_(b) == T_(b + 1))
+    while (b < m - 1 && std::fabs(T_(b) - T_(b + 1)) < _epsilon)
       b = b + 1;
     new_m += mul + 1;
     int oldr = r;
@@ -600,7 +600,7 @@ double Curve::projectPoint(const Point& point) const
   {
     const Span& sp = spans_[i];
 
-    if (sp.start_t_ == sp.end_t_)
+    if (std::fabs(sp.start_t_ - sp.end_t_) < _epsilon)
       continue;
 
     Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
@@ -737,6 +737,8 @@ Eigen::ArrayXd Curve::knotVector() const { return T_; }
 
 void Curve::setKnot(int idx, double value)
 {
+  if (idx < 0 || idx >= T_.rows()) return;
+
   if (idx > 0)
     value = std::max(value, T_(idx - 1));
   else
@@ -748,6 +750,7 @@ void Curve::setKnot(int idx, double value)
   T_(idx) = value;
   resetCache();
 
+  // todo: update only affected knots
   for (int i = 0; i < spans_.size(); i++)
   {
     spans_[i].update();
@@ -782,7 +785,7 @@ int Curve::getKnotSpanIndex(double t) const
   return N_ - 1;
 }
 
-int Curve::getKnotMultiplicity(double t) const { return (T_ == t).count(); }
+int Curve::getKnotMultiplicity(double t) const { return ((T_ - t).abs() < _epsilon).count(); }
 
 void Curve::insertKnot(double t, int r)
 {
@@ -924,7 +927,7 @@ Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const
 double Curve::length(double t) const
 {
   // analytic
-  if (t == 0.0)
+  if (t < _epsilon)
     return 0.0;
 
   int ix = 0;
