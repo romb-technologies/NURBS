@@ -422,14 +422,14 @@ PointVector Curve::polyline(double flatness) const
 {
   if (!cached_polyline_)
   {
-    cached_polyline_ = std::make_unique<PointVector>();
+    cached_polyline_ = PointVector();
     for (int i = 0; i < spans_.size(); i++)
     {
       PointVector poly = spans_[i].polyline();
       cached_polyline_->insert(cached_polyline_->end(), poly.begin(), poly.end());
     }
   }
-  return *cached_polyline_;
+  return cached_polyline_.value();
 }
 
 Point Curve::valueAt(double t) const
@@ -458,8 +458,8 @@ BoundingBox Curve::boundingBox() const
     extremes.row(extremes.rows() - 1) = controlPoint(0);
     extremes.row(extremes.rows() - 2) = controlPoint(N_ - 1);
 
-    cached_bounding_box_ = std::make_unique<BoundingBox>(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
-                                                         Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+    cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                                       Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
   }
   return *cached_bounding_box_;
 }
@@ -485,7 +485,7 @@ std::vector<double> Curve::roots() const
 {
   if (!cached_roots_)
   {
-    cached_roots_ = std::make_unique<std::vector<double>>();
+    cached_roots_ = std::vector<double>();
     if (N_ > 1)
     {
       Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
@@ -535,10 +535,8 @@ std::vector<double> Curve::extrema() const
       pb.head(p_) = (sp.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
       Eigen::MatrixX2d poly(2 * p_ + 1, 2);
-      poly.col(0) =
-          -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.cachedWBF());
-      poly.col(1) =
-          -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.cachedWBF());
+      poly.col(0) = -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.cachedWBF());
+      poly.col(1) = -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.cachedWBF());
 
       auto trimmed_x = _trimZeroes(poly.col(0));
       auto trimmed_y = _trimZeroes(poly.col(1));
@@ -616,10 +614,8 @@ double Curve::projectPoint(const Point& point) const
     Eigen::MatrixX2d left = sp.cachedVBF() - (point * sp.cachedWBF()).transpose();
 
     Eigen::MatrixX2d right(2 * p_ + 1, 2);
-    right.col(0) =
-        -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(0));
-    right.col(1) =
-        -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(1));
+    right.col(0) = -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(0));
+    right.col(1) = -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(1));
 
     Eigen::VectorXd poly =
         _multiplyPolynomials(left.col(0), right.col(0)) + _multiplyPolynomials(left.col(1), right.col(1));
@@ -728,7 +724,6 @@ PointVector Curve::intersections(const Curve& curve) const
 void Curve::resetCache()
 {
   N_ = weighted_control_points_.rows();
-  cached_derivative_.reset();
   cached_roots_.reset();
   cached_bounding_box_.reset();
   cached_polyline_.reset();
