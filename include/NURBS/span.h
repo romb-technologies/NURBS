@@ -54,7 +54,7 @@ public:
    * \brief Retrieve this knot span's basis function in matrix form.
    * \return Basis function
    */
-  Eigen::MatrixXd getBasisFunction() const;
+  Eigen::MatrixXd basisFunction() const;
   /*!
    * \brief Evaluate the polyline representation of this knot span.
    * \return A vector of polyline vertices
@@ -101,13 +101,13 @@ public:
    * \brief Retrieve the cached weights times basis function
    * \return Vector
    */
-  Eigen::RowVectorXd getCachedWBF() const;
+  Eigen::RowVectorXd cachedWBF() const;
   /*!
    * \brief Retrieve the cached weighted control points
    * times basis function
    * \return Matrix
    */
-  Eigen::MatrixXd getCachedVBF() const;
+  Eigen::MatrixXd cachedVBF() const;
 
 private:
   mutable std::optional<double> cached_length_;
@@ -125,8 +125,6 @@ private:
    * \warning Must always match curve order
    */
   const uint p_;
-
-  static double evaluate_chebyshev(double t, const Eigen::VectorXd& coeff);
 };
 } // namespace NURBS
 

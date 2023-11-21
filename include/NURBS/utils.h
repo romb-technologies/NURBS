@@ -58,7 +58,7 @@ inline Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsign
 inline Eigen::VectorXd _trimZeroes(const Eigen::VectorXd& vec)
 {
   auto idx = vec.size();
-  while (idx && std::abs(vec(idx - 1)) < _epsilon)
+  while (idx && std::fabs(vec(idx - 1)) < _epsilon)
     --idx;
   return vec.head(idx);
 }
@@ -68,7 +68,7 @@ inline Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& poly1, const 
   Eigen::VectorXd result = Eigen::VectorXd::Zero(poly1.size() + poly2.size() - 1);
   for (int i = 0; i < poly1.size(); i++)
     for (int j = 0; j < poly2.size(); j++)
-      result[i + j] += poly1[i] * poly2[j];
+      result(i + j) += poly1(i) * poly2(j);
 
   return result;
 }

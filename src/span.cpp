@@ -10,15 +10,9 @@ Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot
   update();
 }
 
-bool Span::contains(double t) const
-{
-  if (start_t_ == end_t_)
-    return false;
-  else
-    return (t >= start_t_) && (t < end_t_);
-}
+bool Span::contains(double t) const { return std::fabs(start_t_ - end_t_) > _epsilon && t >= start_t_ && t < end_t_; }
 
-Eigen::MatrixXd Span::getBasisFunction() const { return basis_function_; }
+Eigen::MatrixXd Span::basisFunction() const { return basis_function_; }
 
 void Span::update()
 {
@@ -30,7 +24,7 @@ void Span::update()
   Eigen::MatrixXd m(1, 1);
   m << 1;
 
-  if (start_t_ != end_t_)
+  if (std::fabs(start_t_ - end_t_) > _epsilon) // start_t_ != end_t_
   {
     int i = p_ - 1;
     for (int k = 2; k <= p_ + 1; k++)
@@ -146,6 +140,18 @@ double Span::length(double t) const
   if (t < 0.0 || t > 1.0)
     throw std::logic_error{"Length can only be calculated for t within [0.0, 1.0] range."};
 
+  auto evaluate_chebyshev = [](double t, const Eigen::VectorXd& coeff) {
+    t = 2 * t - 1;
+    double tn{t}, tn_1{1}, res{coeff(0) + coeff(1) * t};
+    for (unsigned k = 2; k < coeff.size(); k++)
+    {
+      std::swap(tn_1, tn);
+      tn = 2 * t * tn_1 - tn;
+      res += coeff(k) * tn;
+    }
+    return res;
+  };
+
   if (!cached_chebyshev_coeffs_)
   {
     constexpr unsigned START_LOG_N = 10;
@@ -194,7 +200,7 @@ double Span::length(double t) const
       fft.fwd(fft_out, coeff);
       chebyshev = (fft_out.real().head(n - 1) - fft_out.real().segment(2, n - 1)).array() /
                   Eigen::ArrayXd::LinSpaced(n - 1, 4, 4 * (n - 1));
-    } while (std::fabs(chebyshev.tail<1>()[0]) > _epsilon * 1e-2);
+    } while (std::fabs(chebyshev.tail<1>()(0)) > _epsilon * 1e-2);
 
     unsigned cut = 0;
     while (std::fabs(chebyshev(cut)) > _epsilon * 1e-2)
@@ -208,19 +214,6 @@ double Span::length(double t) const
 
 double Span::length() const { return length(1.0); }
 
-double Span::evaluate_chebyshev(double t, const Eigen::VectorXd& coeff)
-{
-  t = 2 * t - 1;
-  double tn{t}, tn_1{1}, res{coeff(0) + coeff(1) * t};
-  for (unsigned k = 2; k < coeff.size(); k++)
-  {
-    std::swap(tn_1, tn);
-    tn = 2 * t * tn_1 - tn;
-    res += coeff(k) * tn;
-  }
-  return res;
-}
+Eigen::RowVectorXd Span::cachedWBF() const { return cached_wbf_; }
 
-Eigen::RowVectorXd Span::getCachedWBF() const { return cached_wbf_; }
-
-Eigen::MatrixXd Span::getCachedVBF() const { return cached_vbf_; }
+Eigen::MatrixXd Span::cachedVBF() const { return cached_vbf_; }

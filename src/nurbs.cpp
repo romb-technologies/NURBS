@@ -14,17 +14,17 @@ Curve::Curve(Eigen::MatrixX2d points, int p) : N_(points.rows()), p_(p), T_(N_ +
   uint m = N_ + p_ + 1;
   for (uint i = 0; i < p_ + 1; i++)
   {
-    T_[i] = 0;
+    T_(i) = 0;
   }
   uint knots = m - 2 * (p_ + 1);
   double interval = 1.0 / (N_ - p_);
   for (uint i = 0; i < knots; i++)
   {
-    T_[p_ + 1 + i] = (i + 1) * interval;
+    T_(p_ + 1 + i) = (i + 1) * interval;
   }
   for (uint i = m - (p_ + 1); i < m; i++)
   {
-    T_[i] = 1;
+    T_(i) = 1;
   }
 
   // spans
@@ -46,17 +46,17 @@ Curve::Curve(const PointVector& points, int p) : N_(points.size()), p_(p), T_(N_
 
   for (uint i = 0; i < p_ + 1; i++)
   {
-    T_[i] = 0;
+    T_(i) = 0;
   }
   uint knots = m - 2 * (p_ + 1);
   double interval = 1.0 / (N_ - 2);
   for (uint i = 0; i < knots; i++)
   {
-    T_[p_ + 1 + i] = (i + 1) * interval;
+    T_(p_ + 1 + i) = (i + 1) * interval;
   }
   for (uint i = m - (p_ + 1); i < m; i++)
   {
-    T_[i] = 1;
+    T_(i) = 1;
   }
 
   // spans
@@ -301,7 +301,7 @@ void Curve::lowerOrder()
     {
       double numer = T_(b) - T_(a);
       for (int k = p_; k > mul; k--)
-        alphas[k - mul - 1] = numer / (T_[a + k] - T_[a]);
+        alphas(k - mul - 1) = numer / (T_(a + k) - T_(a));
       for (int j = 1; j <= r; j++)
       {
         int save = r - j;
@@ -491,7 +491,7 @@ std::vector<double> Curve::roots() const
       Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
       for (int i = 0; i < spans_.size(); i++)
       {
-        Eigen::MatrixXd bezier_polynomial = spans_[i].getCachedVBF();
+        Eigen::MatrixXd bezier_polynomial = spans_[i].cachedVBF();
 
         auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
         auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
@@ -528,17 +528,17 @@ std::vector<double> Curve::extrema() const
       // d/du R(u)
       Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
       p1.topRows(p_) =
-          (sp.getCachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+          (sp.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
 
       // d/du S(u)
       Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
-      pb.head(p_) = (sp.getCachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+      pb.head(p_) = (sp.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
       Eigen::MatrixX2d poly(2 * p_ + 1, 2);
       poly.col(0) =
-          -_multiplyPolynomials(pb, sp.getCachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.getCachedWBF());
+          -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.cachedWBF());
       poly.col(1) =
-          -_multiplyPolynomials(pb, sp.getCachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.getCachedWBF());
+          -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.cachedWBF());
 
       auto trimmed_x = _trimZeroes(poly.col(0));
       auto trimmed_y = _trimZeroes(poly.col(1));
@@ -608,18 +608,18 @@ double Curve::projectPoint(const Point& point) const
     Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
 
     p1.topRows(p_) =
-        (sp.getCachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+        (sp.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
 
     Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
-    pb.head(p_) = (sp.getCachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+    pb.head(p_) = (sp.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
-    Eigen::MatrixX2d left = sp.getCachedVBF() - (point * sp.getCachedWBF()).transpose();
+    Eigen::MatrixX2d left = sp.cachedVBF() - (point * sp.cachedWBF()).transpose();
 
     Eigen::MatrixX2d right(2 * p_ + 1, 2);
     right.col(0) =
-        -_multiplyPolynomials(pb, sp.getCachedVBF().col(0)) + _multiplyPolynomials(sp.getCachedWBF(), p1.col(0));
+        -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(0));
     right.col(1) =
-        -_multiplyPolynomials(pb, sp.getCachedVBF().col(1)) + _multiplyPolynomials(sp.getCachedWBF(), p1.col(1));
+        -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(1));
 
     Eigen::VectorXd poly =
         _multiplyPolynomials(left.col(0), right.col(0)) + _multiplyPolynomials(left.col(1), right.col(1));
@@ -923,7 +923,7 @@ Eigen::VectorXd Curve::getBasisFunctionsAt(double t) const
 {
   const Span& sp = getKnotSpan(t);
   double u = (t - sp.start_t_) / (sp.end_t_ - sp.start_t_);
-  return _powSeries(u, p_) * sp.getBasisFunction();
+  return _powSeries(u, p_) * sp.basisFunction();
 }
 
 double Curve::length(double t) const
