@@ -1048,11 +1048,11 @@ Curve Curve::join(Curve& other)
   auto ends1 = endPoints();
   auto ends2 = other.endPoints();
 
-  if (_dist(ends1.second, ends2.second) < _dist(ends1.second, ends2.first))
+  if ((ends1.second - ends2.second).norm() < (ends1.second - ends2.first).norm())
     other.reverse();
-  if (_dist(ends1.first, ends2.first) < _dist(ends1.second, ends2.first))
+  if ((ends1.first - ends2.first).norm() < (ends1.second - ends2.first).norm())
     this->reverse();
-  if (_dist(ends1.first, ends2.second) < _dist(ends1.first, ends2.first))
+  if ((ends1.first - ends2.second).norm() < (ends1.first - ends2.first).norm())
   {
     this->reverse();
     other.reverse();
