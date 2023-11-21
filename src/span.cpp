@@ -119,12 +119,12 @@ Point Span::derivativeAt(int n, double u) const
   double su = pw.dot(s);
 
   // derivatives of 1/S(u) in point t
-  double d1su = -pwd1.dot(s) / pow(su, 2);
+  double d1su = -pwd1.dot(s) / _pow(su, 2);
 
-  double d2su = -pwd2.dot(s) / pow(su, 2) + 2 * pow(pwd1.dot(s), 2) / pow(su, 3);
+  double d2su = -pwd2.dot(s) / _pow(su, 2) + 2 * _pow(pwd1.dot(s), 2) / _pow(su, 3);
 
-  double d3su = -(pwd3.dot(s) / pow(su, 2)) + 4 * (pwd1.dot(s) * pwd2.dot(s) / pow(su, 3)) -
-                6 * (pow(pwd1.dot(s), 3) / pow(su, 4));
+  double d3su = -(pwd3.dot(s) / _pow(su, 2)) + 4 * (pwd1.dot(s) * pwd2.dot(s) / _pow(su, 3)) -
+                6 * (_pow(pwd1.dot(s), 3) / _pow(su, 4));
 
   switch (n)
   {

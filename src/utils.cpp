@@ -37,7 +37,7 @@ Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsigned drv)
     }
   }
   for (unsigned k = drv; k <= exp; k++)
-    power_series(k) *= pow(base, k - drv);
+    power_series(k) *= _pow(base, k - drv);
   return power_series;
 }
 
