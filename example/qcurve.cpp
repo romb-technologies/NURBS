@@ -16,15 +16,9 @@ bool qCurve::getDraw_control_points() const { return draw_control_points; }
 
 bool qCurve::getDraw_curvature_radious() const { return draw_curvature_radius; }
 
-bool qCurve::getLocked() const
-{
-    return locked;
-}
+bool qCurve::getLocked() const { return locked; }
 
-void qCurve::setLocked(bool value)
-{
-    locked = value;
-}
+void qCurve::setLocked(bool value) { locked = value; }
 
 int qCurve::type() const { return QGraphicsItem::UserType + 1; }
 
@@ -38,7 +32,7 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
   painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform, true);
 
   QPen pen;
-//  pen.setStyle(isSelected() ? Qt::DashLine : Qt::SolidLine);
+  //  pen.setStyle(isSelected() ? Qt::DashLine : Qt::SolidLine);
   pen.setColor(getLocked() ? Qt::red : Qt::black);
   pen.setWidth(isSelected() ? 2 : 1);
   painter->setPen(pen);
@@ -57,22 +51,27 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
     for (uint k = 1; k < points.size(); k++)
     {
       painter->setPen(CONTROL_POINT_COLOR);
-      painter->drawEllipse(QRectF(points[k - 1].x() - dot_size / 2, points[k - 1].y() - dot_size / 2, dot_size, dot_size));
+      painter->drawEllipse(
+          QRectF(points[k - 1].x() - dot_size / 2, points[k - 1].y() - dot_size / 2, dot_size, dot_size));
       painter->setPen(QPen(QBrush(Qt::lightGray), 1, Qt::DotLine));
       painter->drawLine(QLineF(points[k - 1].x(), points[k - 1].y(), points[k].x(), points[k].y()));
     }
     painter->setPen(CONTROL_POINT_COLOR);
-    painter->drawEllipse(QRectF(points.back().x() - dot_size / 2, points.back().y() - dot_size / 2, dot_size, dot_size));
+    painter->drawEllipse(
+        QRectF(points.back().x() - dot_size / 2, points.back().y() - dot_size / 2, dot_size, dot_size));
   }
 
-  if (draw_knots) {
-      const int dot_size = 4;
-      painter->setBrush(QBrush(KNOT_COLOR, Qt::SolidPattern));
-      Eigen::VectorXd knots = Curve::knotVector().matrix();
-      for (uint k=order(); k<controlPoints().size()+1; k++) {
-          painter->setPen(KNOT_COLOR);
-          painter->drawEllipse(QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
-      }
+  if (draw_knots)
+  {
+    const int dot_size = 4;
+    painter->setBrush(QBrush(KNOT_COLOR, Qt::SolidPattern));
+    Eigen::VectorXd knots = Curve::knotVector().matrix();
+    for (uint k = order(); k < controlPoints().size() + 1; k++)
+    {
+      painter->setPen(KNOT_COLOR);
+      painter->drawEllipse(
+          QRectF(valueAt(knots(k))(0) - dot_size / 2, valueAt(knots(k))(1) - dot_size / 2, dot_size, dot_size));
+    }
   }
 
   if (draw_curvature_radius)
@@ -91,13 +90,11 @@ void qCurve::paint(QPainter* painter, const QStyleOptionGraphicsItem* option, QW
   }
 }
 
-
 QRectF qCurve::boundingRect() const
 {
   auto bbox = boundingBox();
   return QRectF(QPointF(bbox.min().x(), bbox.min().y()), QPointF(bbox.max().x(), bbox.max().y()));
 }
-
 
 std::vector<double> qCurve::knotVector()
 {
@@ -115,24 +112,26 @@ std::vector<double> qCurve::weights()
 
 void qCurve::setKnot(int idx, double value)
 {
-  if (knot(idx) != value) {
-      Curve::setKnot(idx, value);
-      emit knotChanged(idx, knot(idx));
-      emit curveChanged();
-    }
+  if (knot(idx) != value)
+  {
+    Curve::setKnot(idx, value);
+    emit knotChanged(idx, knot(idx));
+    emit curveChanged();
+  }
 }
 
 void qCurve::setWeight(int idx, double value)
 {
-  if (weight(idx) != value) {
-      Curve::setWeight(idx, value);
-      emit weightChanged(idx, value);
-      emit curveChanged();
-    }
+  if (weight(idx) != value)
+  {
+    Curve::setWeight(idx, value);
+    emit weightChanged(idx, value);
+    emit curveChanged();
+  }
 }
 
 void qCurve::elevateOrder(uint t)
 {
-    Curve::elevateOrder(t);
-    emit curveChanged();
+  Curve::elevateOrder(t);
+  emit curveChanged();
 }

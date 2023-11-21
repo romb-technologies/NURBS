@@ -1,16 +1,13 @@
 #include "mainwindow.h"
-#include "ui_mainwindow.h"
 #include "curvelistwidgetitem.h"
+#include "ui_mainwindow.h"
 
 #include <QDebug>
+#include <QStatusBar>
 #include <chrono>
 #include <iostream>
-#include <QStatusBar>
 
-MainWindow::MainWindow(QWidget* parent)
-    : QMainWindow(parent)
-    , ui(new Ui::MainWindow)
-    , scene(new CustomScene)
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWindow), scene(new CustomScene)
 {
   ui->setupUi(this);
 
@@ -22,16 +19,9 @@ MainWindow::MainWindow(QWidget* parent)
   cp1.resize(4, 2);
   cp2.resize(5, 2);
 
-  cp1 << 84, 162,
-      246, 30,
-      48, 236,
-      180, 110;
+  cp1 << 84, 162, 246, 30, 48, 236, 180, 110;
 
-  cp2 << 180, 110,
-      175, 160,
-      60, 48,
-      164, 165,
-      124, 134;
+  cp2 << 180, 110, 175, 160, 60, 48, 164, 165, 124, 134;
 
   NURBS::Curve curve1(cp1 * 5);
   NURBS::Curve curve2(cp2 * 5);
@@ -42,104 +32,76 @@ MainWindow::MainWindow(QWidget* parent)
   // --- end of scene setup ---
 
   // init knot vector and weight display
-  connect(ui->curveList,
-          &QListWidget::currentItemChanged,
-          this,
-          [this](QListWidgetItem *current) {
-            if (current) {
-              if (activeCurve) {
-                  activeCurve->disconnect(ui->knotVector);
-                  activeCurve->disconnect(ui->weights);
-                }
-              if (qCurve* c = static_cast<CurveListWidgetItem*>(current)->curve; c != activeCurve)
-                activeCurve = c;
-              else
-                return;
-
-              ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
-
-              connect(ui->knotVector,
-                      &qVectorField::valueChanged,
-                      activeCurve,
-                      &qCurve::setKnot);
-              connect(activeCurve,
-                      &qCurve::knotChanged,
-                      ui->knotVector,
-                      &qVectorField::setValue);
-
-              ui->weights->setData(activeCurve->weights(), 0.0, 100.0);
-              connect(ui->weights,
-                      &qVectorField::valueChanged,
-                      activeCurve,
-                      &qCurve::setWeight);
-              connect(activeCurve,
-                      &qCurve::weightChanged,
-                      ui->weights,
-                      &qVectorField::setValue);
-
-              ui->infoText->setText(QString("Order: %1 | Points: %2").arg(
-                                      QString::number(activeCurve->order()),
-                                      QString::number(activeCurve->controlPoints().size()))
-                                    );
-
-              ui->customPlot->clearGraphs();
-              int N = activeCurve->controlPoints().size();
-              for (int pt=0; pt<N; pt++) {
-                  ui->customPlot->addGraph()->setPen(QPen(QColor(255.0*pt/(N-1), 0, 255.0*(1-pt/(N-1)))));
-                }
-              graphKnotVector(activeCurve);
-              connect(activeCurve,
-                      &qCurve::knotChanged,
-                      this,
-                      [this]() {
-                  graphKnotVector(activeCurve);
-                });
-              }
-            else {
-                activeCurve = nullptr;
-                clearInfoDisplay();
-              }
-  });
-
-  connect(scene,
-          &CustomScene::cursorMove,
-          this,
-          [this](QPointF p) {
-    ui->statusBar->showMessage(QString("(%1, %2)").arg(p.x()).arg(p.y()));
-  });
-  connect(scene,
-          &CustomScene::pointToT,
-          this,
-          [this](double t) {
-      ui->statusBar->showMessage(QString("t=%1").arg(t));
-    });
-  connect(scene,
-          &QGraphicsScene::selectionChanged,
-          this,
-          [this]() {
-      if (scene->selectedItems().count() == 0) {
-          ui->curveList->clearSelection();
-          ui->curveList->setCurrentItem(nullptr);
-          return;
-        }
-      for(int i = 0; i < ui->curveList->count(); i++)
-        {
-          CurveListWidgetItem* item = static_cast<CurveListWidgetItem*>(ui->curveList->item(i));
-          if (item->curve == scene->selectedItems()[0]) {
-              ui->curveList->setCurrentItem(item);
-              return;
-            }
-        }
-    });
-  connect(ui->curveList,
-          &QListWidget::currentItemChanged,
-          this,
-          [this](QListWidgetItem* current) {
-    if (current) {
-        CurveListWidgetItem *item = static_cast<CurveListWidgetItem*>(current);
-        scene->selectItem(item->curve);
+  connect(ui->curveList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem* current) {
+    if (current)
+    {
+      if (activeCurve)
+      {
+        activeCurve->disconnect(ui->knotVector);
+        activeCurve->disconnect(ui->weights);
       }
-    });
+      if (qCurve* c = static_cast<CurveListWidgetItem*>(current)->curve; c != activeCurve)
+        activeCurve = c;
+      else
+        return;
+
+      ui->knotVector->setData(activeCurve->knotVector(), 0.0, 1.0);
+
+      connect(ui->knotVector, &qVectorField::valueChanged, activeCurve, &qCurve::setKnot);
+      connect(activeCurve, &qCurve::knotChanged, ui->knotVector, &qVectorField::setValue);
+
+      ui->weights->setData(activeCurve->weights(), 0.0, 100.0);
+      connect(ui->weights, &qVectorField::valueChanged, activeCurve, &qCurve::setWeight);
+      connect(activeCurve, &qCurve::weightChanged, ui->weights, &qVectorField::setValue);
+
+      ui->infoText->setText(
+          QString("Order: %1 | Points: %2")
+              .arg(QString::number(activeCurve->order()), QString::number(activeCurve->controlPoints().size())));
+
+      ui->customPlot->clearGraphs();
+      int N = activeCurve->controlPoints().size();
+      for (int pt = 0; pt < N; pt++)
+      {
+        ui->customPlot->addGraph()->setPen(QPen(QColor(255.0 * pt / (N - 1), 0, 255.0 * (1 - pt / (N - 1)))));
+      }
+      graphKnotVector(activeCurve);
+      connect(activeCurve, &qCurve::knotChanged, this, [this]() { graphKnotVector(activeCurve); });
+    }
+    else
+    {
+      activeCurve = nullptr;
+      clearInfoDisplay();
+    }
+  });
+
+  connect(scene, &CustomScene::cursorMove, this,
+          [this](QPointF p) { ui->statusBar->showMessage(QString("(%1, %2)").arg(p.x()).arg(p.y())); });
+  connect(scene, &CustomScene::pointToT, this,
+          [this](double t) { ui->statusBar->showMessage(QString("t=%1").arg(t)); });
+  connect(scene, &QGraphicsScene::selectionChanged, this, [this]() {
+    if (scene->selectedItems().count() == 0)
+    {
+      ui->curveList->clearSelection();
+      ui->curveList->setCurrentItem(nullptr);
+      return;
+    }
+    for (int i = 0; i < ui->curveList->count(); i++)
+    {
+      CurveListWidgetItem* item = static_cast<CurveListWidgetItem*>(ui->curveList->item(i));
+      if (item->curve == scene->selectedItems()[0])
+      {
+        ui->curveList->setCurrentItem(item);
+        return;
+      }
+    }
+  });
+  connect(ui->curveList, &QListWidget::currentItemChanged, this, [this](QListWidgetItem* current) {
+    if (current)
+    {
+      CurveListWidgetItem* item = static_cast<CurveListWidgetItem*>(current);
+      scene->selectItem(item->curve);
+    }
+  });
 
   ui->customPlot->xAxis->setRange(0, 1);
   ui->customPlot->yAxis->setRange(0, 1);
@@ -151,74 +113,68 @@ MainWindow::MainWindow(QWidget* parent)
 
 qCurve* MainWindow::addCurveToScene(NURBS::Curve c)
 {
-    static uint counter = 1;
-    qCurve *qc = addCurveToScene(c, QString("Curve %1").arg(QString::number(counter++)));
-    activeCurve = qc;
-    return qc;
+  static uint counter = 1;
+  qCurve* qc = addCurveToScene(c, QString("Curve %1").arg(QString::number(counter++)));
+  activeCurve = qc;
+  return qc;
 }
 
 qCurve* MainWindow::addCurveToScene(NURBS::Curve c, QString name)
 {
-    qCurve* qc = new qCurve(c);
-    scene->addItem(qc);
-    new CurveListWidgetItem(qc,
-                            name,
-                            ui->curveList);
-    connect(qc,
-            &qCurve::curveChanged,
-            this,
-            [this]() {
-        scene->update();
-      });
-    activeCurve = qc;
-    return qc;
+  qCurve* qc = new qCurve(c);
+  scene->addItem(qc);
+  new CurveListWidgetItem(qc, name, ui->curveList);
+  connect(qc, &qCurve::curveChanged, this, [this]() { scene->update(); });
+  activeCurve = qc;
+  return qc;
 }
 
 void MainWindow::removeActiveCurveFromScene()
 {
-    if (!activeCurve)
-      return;
-    ui->curveList->blockSignals(true);
-    QListWidgetItem *it = ui->curveList->takeItem(ui->curveList->currentRow());
-    delete it;
-    ui->curveList->blockSignals(false);
+  if (!activeCurve)
+    return;
+  ui->curveList->blockSignals(true);
+  QListWidgetItem* it = ui->curveList->takeItem(ui->curveList->currentRow());
+  delete it;
+  ui->curveList->blockSignals(false);
 
-    scene->removeItem(activeCurve);
-    delete activeCurve;
-    activeCurve = nullptr;
+  scene->removeItem(activeCurve);
+  delete activeCurve;
+  activeCurve = nullptr;
 
-
-    scene->selectedItems().clear();
-    clearInfoDisplay();
+  scene->selectedItems().clear();
+  clearInfoDisplay();
 }
 
-
-void MainWindow::graphKnotVector(qCurve *curve)
+void MainWindow::graphKnotVector(qCurve* curve)
 {
-    std::vector<QVector<double>> x, y;
+  std::vector<QVector<double>> x, y;
 
-    int m = curve->order() + 1;
-    int N = curve->controlPoints().size();
-    const double detail = 500;
+  int m = curve->order() + 1;
+  int N = curve->controlPoints().size();
+  const double detail = 500;
 
-    for (int pt=0; pt<N; pt++) {
-        x.emplace_back(QVector<double>(detail+1));
-        y.emplace_back(QVector<double>(detail+1));
-      }
+  for (int pt = 0; pt < N; pt++)
+  {
+    x.emplace_back(QVector<double>(detail + 1));
+    y.emplace_back(QVector<double>(detail + 1));
+  }
 
-    for (int i=0; i<=detail; i++) {
-        Eigen::VectorXd bf = curve->getBasisFunctionsAt(i/detail);
+  for (int i = 0; i <= detail; i++)
+  {
+    Eigen::VectorXd bf = curve->getBasisFunctionsAt(i / detail);
 
-        int sp = curve->getKnotSpanIndex(i/detail)-m+1;
-        for (int pt=0; pt<m; pt++) {
-            x[sp+pt][i] = i/detail;
-            y[sp+pt][i] = bf(pt);
-        }
-      }
-    for (int pt=0; pt<N; pt++)
-      ui->customPlot->graph(pt)->setData(x[pt], y[pt]);
+    int sp = curve->getKnotSpanIndex(i / detail) - m + 1;
+    for (int pt = 0; pt < m; pt++)
+    {
+      x[sp + pt][i] = i / detail;
+      y[sp + pt][i] = bf(pt);
+    }
+  }
+  for (int pt = 0; pt < N; pt++)
+    ui->customPlot->graph(pt)->setData(x[pt], y[pt]);
 
-    ui->customPlot->replot();
+  ui->customPlot->replot();
 }
 
 void MainWindow::clearInfoDisplay()
@@ -234,4 +190,3 @@ void MainWindow::clearInfoDisplay()
 }
 
 MainWindow::~MainWindow() { delete ui; }
-

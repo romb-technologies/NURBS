@@ -13,6 +13,7 @@ public:
   bool draw_box_ = true;
   bool draw_inter_ = false;
   bool show_projection = false;
+
 private:
   QGraphicsEllipseItem* dot;
   QGraphicsTextItem* number_display;
@@ -33,7 +34,7 @@ protected:
   void mouseReleaseEvent(QGraphicsSceneMouseEvent* mouseEvent) Q_DECL_OVERRIDE;
 
   void projectPointOntoCurve(qCurve* curve, NURBS::Point p);
-  qCurve *getClosestCurve(NURBS::Point p, bool selected=false, double max_dist = 10);
+  qCurve* getClosestCurve(NURBS::Point p, bool selected = false, double max_dist = 10);
 
 signals:
   void cursorMove(QPointF pos);

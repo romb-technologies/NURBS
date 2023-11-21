@@ -1,10 +1,10 @@
 #ifndef NURBS_H
 #define NURBS_H
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <numeric>
-#include <limits>
 
 #include "NURBS/declarations.h"
 #include "NURBS/span.h"
@@ -13,7 +13,8 @@
 #include <unsupported/Eigen/MatrixFunctions>
 #include <unsupported/Eigen/Polynomials>
 
-namespace NURBS {
+namespace NURBS
+{
 
 /*!
  * \brief A NURBS curve class
@@ -38,7 +39,7 @@ public:
    * number of points in the array. \c N must be higher or equal to \c p+1.
    * The knot vector is automatically set to consist of equally spaced knots.
    */
-  Curve(Eigen::MatrixX2d points, int p=3);
+  Curve(Eigen::MatrixX2d points, int p = 3);
 
   /*!
    * \brief Create a NURBS curve of order \c p based on an array of control points.
@@ -50,7 +51,7 @@ public:
    * number of points in the vector. \c N must be higher or equal to \c p+1.
    * The knot vector is automatically set to consist of equally spaced knots.
    */
-  Curve(const PointVector& points, int p=3);
+  Curve(const PointVector& points, int p = 3);
 
   /*!
    * \brief Create a NURBS curve with defined weighted control points, knot vector and order.
@@ -58,9 +59,9 @@ public:
    * \param knotvector Array of knots in ascending order, must be of length N+p+1.
    * \param p Order of the curve, defaults to 3.
    */
-  Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p=3);
+  Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p = 3);
 
-  Curve(const Curve& curve);  
+  Curve(const Curve& curve);
   Curve(Curve&&) = default;
 
   Curve& operator=(const Curve&);
@@ -79,7 +80,7 @@ public:
    * Curve will always retain its shape
    * \warning Resets cached data
    */
-  void elevateOrder(uint t=1);
+  void elevateOrder(uint t = 1);
 
   /*!
    * \brief Lower the curve order by 1
@@ -332,7 +333,7 @@ public:
    * \param ix Index of knot to be removed
    * \param k Number of times to remove the knot (must be less or equal to knot's multiplicity, defaults to 1)
    */
-  void removeKnot(int ix, int k=1);
+  void removeKnot(int ix, int k = 1);
 
   /*!
    * \brief Remove the \c ix-th control point of this curve
@@ -345,7 +346,7 @@ public:
    * \param other Reference to second curve
    * \return New curve that is a result of joining the two curves
    */
-  Curve join(Curve &other);
+  Curve join(Curve& other);
 
   /*!
    * \brief Make this curve continuous with \c source_curve
@@ -384,12 +385,11 @@ private:
   /// Knot spans
   mutable std::vector<Span> spans_;
 
-
-  Span &getKnotSpan(double t) const;
+  Span& getKnotSpan(double t) const;
   int getKnotMultiplicity(double t) const;
   void normalizeKnotVector();
 };
 
-}
+} // namespace NURBS
 
 #endif // NURBS_H

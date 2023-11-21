@@ -44,6 +44,6 @@ using BoundingBox = Eigen::AlignedBox2d;
  */
 const double _epsilon = std::sqrt(std::numeric_limits<double>::epsilon());
 
-}
+} // namespace NURBS
 
 #endif // DECLARATIONS_H

@@ -1,9 +1,9 @@
 #ifndef QGRAPHICSVIEWZOOM_H
 #define QGRAPHICSVIEWZOOM_H
 
-#include <QObject>
 #include <QDebug>
 #include <QGraphicsView>
+#include <QObject>
 
 class QGraphicsViewZoom : public QObject
 {

@@ -1,12 +1,12 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
 #include <QDoubleSpinBox>
 #include <QListWidgetItem>
+#include <QMainWindow>
 
-#include "qcustomplot.h"
 #include "customscene.h"
+#include "qcustomplot.h"
 
 namespace Ui
 {
@@ -45,14 +45,14 @@ private:
   qCurve* activeCurve;
 
   QDoubleSpinBox* makeSpinBox(double min, double max, double step, std::vector<QDoubleSpinBox*>& addTo);
-  void displayKnotVector(qCurve *curve);
-  void displayWeights(qCurve *curve);
+  void displayKnotVector(qCurve* curve);
+  void displayWeights(qCurve* curve);
   void onUpdateKnot();
   void onUpdateWeight();
-  qCurve *addCurveToScene(NURBS::Curve c);
-  qCurve *addCurveToScene(NURBS::Curve c, QString name);
+  qCurve* addCurveToScene(NURBS::Curve c);
+  qCurve* addCurveToScene(NURBS::Curve c, QString name);
   void removeActiveCurveFromScene();
-  void graphKnotVector(qCurve *curve);
+  void graphKnotVector(qCurve* curve);
   void clearInfoDisplay();
 };
 
