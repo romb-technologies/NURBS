@@ -20,7 +20,6 @@ INCLUDEPATH += /usr/include/eigen3 \
 
 SOURCES += \
     ../src/span.cpp \
-    ../src/utils.cpp \
     actions.cpp \
     curvelistwidgetitem.cpp \
     customscene.cpp \
