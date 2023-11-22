@@ -24,14 +24,17 @@ class Span
 {
 public:
   ~Span() = default;
-  Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, double start, double end, uint p);
+  Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p);
 
   /// Reference to this span's control points in its parent curve.
-  Eigen::Ref<Eigen::MatrixX3d> wpoints_;
+  Eigen::Ref<Eigen::MatrixX3d> wpoints() const;
   /// Reference to this span's knots in its parent curve.
-  Eigen::Ref<Eigen::ArrayXd> knots;
+  Eigen::Ref<Eigen::ArrayXd> knots() const;
 
-  double start_t_, end_t_;
+  /// Start knot of this span.
+  inline double start() const { return knots_(p_ - 1); }
+  /// End knot of this span.
+  inline double end() const { return knots_(p_); }
   /*!
    * \brief Check if the curve parameter \c t is contained in this span.
    * \param t Curve parameter
@@ -108,6 +111,12 @@ public:
    * \return Matrix
    */
   Eigen::MatrixXd cachedVBF() const;
+  /*!
+   * \brief Reassign this span's control points and knot vector
+   * \param wpoints Reference to control point segment
+   * \param knots Reference to knot vector segment
+   */
+  void reassign(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knots);
 
 private:
   mutable std::optional<double> cached_length_;
@@ -125,6 +134,10 @@ private:
    * \warning Must always match curve order
    */
   const uint p_;
+  /// Reference to this span's control points in its parent curve.
+  Eigen::Ref<Eigen::MatrixX3d> wpoints_;
+  /// Reference to this span's knots in its parent curve.
+  Eigen::Ref<Eigen::ArrayXd> knots_;
 };
 } // namespace NURBS
 

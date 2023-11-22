@@ -40,8 +40,10 @@ Doxygen is required to build the documentation locally.
         ```
 2. Navigate to `docs/html` and open `index.html`
 
-## Licence
+## Licence and credits
 Apache License Version 2.0
+
+The example program uses [QCustomPlot](https://www.qcustomplot.com/)
 
 ---
 

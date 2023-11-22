@@ -4,27 +4,31 @@ using namespace NURBS;
 
 ///// Curve::Span
 
-Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot_v, double start, double end, uint p)
-    : wpoints_(wpoints), knots(knot_v), start_t_(start), end_t_(end), p_(p)
+Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p)
+    : wpoints_(wpoints), knots_(knot_v), p_(p)
 {
   update();
 }
 
-bool Span::contains(double t) const { return std::fabs(start_t_ - end_t_) > _epsilon && t >= start_t_ && t < end_t_; }
+Eigen::Ref<Eigen::MatrixX3d> Span::wpoints() const { return wpoints_; }
+
+Eigen::Ref<Eigen::ArrayXd> Span::knots() const { return knots_; }
 
 Eigen::MatrixXd Span::basisFunction() const { return basis_function_; }
 
+Eigen::RowVectorXd Span::cachedWBF() const { return cached_wbf_; }
+
+Eigen::MatrixXd Span::cachedVBF() const { return cached_vbf_; }
+
+bool Span::contains(double t) const { return std::fabs(start() - end()) > _epsilon && t >= start() && t < end(); }
+
 void Span::update()
 {
-  // update start and end
-  start_t_ = knots(p_ - 1);
-  end_t_ = knots(p_);
-
   // generate basis function
   Eigen::MatrixXd m(1, 1);
   m << 1;
 
-  if (std::fabs(start_t_ - end_t_) > _epsilon) // start_t_ != end_t_
+  if (std::fabs(start() - end()) > _epsilon) // start_t_ != end_t_
   {
     int i = p_ - 1;
     for (int k = 2; k <= p_ + 1; k++)
@@ -35,11 +39,11 @@ void Span::update()
       m1 << m, Eigen::MatrixXd::Zero(1, k - 1);
       m3 << Eigen::MatrixXd::Zero(1, k - 1), m;
 
-      Eigen::ArrayXd d0 = Eigen::ArrayXd::Constant(k - 1, start_t_),
-                     d1 = Eigen::ArrayXd::Constant(k - 1, end_t_ - start_t_), ddwn = Eigen::ArrayXd::Zero(k - 1);
+      Eigen::ArrayXd d0 = Eigen::ArrayXd::Constant(k - 1, start()),
+                     d1 = Eigen::ArrayXd::Constant(k - 1, end() - start()), ddwn = Eigen::ArrayXd::Zero(k - 1);
 
-      ddwn = knots.segment(i + 1, k - 1) - knots.segment(i - k + 2, k - 1);
-      d0 -= knots.segment(i - k + 2, k - 1);
+      ddwn = knots_.segment(i + 1, k - 1) - knots_.segment(i - k + 2, k - 1);
+      d0 -= knots_.segment(i - k + 2, k - 1);
 
       d0 /= ddwn;
       d1 /= ddwn;
@@ -92,8 +96,6 @@ Point Span::valueAt(double u) const
 void Span::resetCache()
 {
   cached_polyline_.reset();
-  start_t_ = knots(p_ - 1);
-  end_t_ = knots(p_);
   updateControlPoints();
 }
 
@@ -214,6 +216,8 @@ double Span::length(double t) const
 
 double Span::length() const { return length(1.0); }
 
-Eigen::RowVectorXd Span::cachedWBF() const { return cached_wbf_; }
-
-Eigen::MatrixXd Span::cachedVBF() const { return cached_vbf_; }
+void Span::reassign(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knots)
+{
+  new (&wpoints_) Eigen::Ref<Eigen::MatrixX3d>{wpoints};
+  new (&knots_) Eigen::Ref<Eigen::VectorXd>{knots};
+}
