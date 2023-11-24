@@ -638,62 +638,45 @@ double Curve::projectPoint(const Point& point) const
 }
 
 // todo: fix
-PointVector Curve::intersections(const Curve& curve) const
+PointVector Curve::intersections(const Curve& other) const
 {
   PointVector intersections;
+  std::vector<std::pair<Curve, Curve>> subcurve_pairs;
+
+  // todo: self intersections
+  if (this == &other)
+    return intersections;
+
   auto addIntersection = [&intersections](Point new_point) {
     // check if not already found, and add new point
     if (std::none_of(intersections.begin(), intersections.end(),
                      [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
       intersections.emplace_back(std::move(new_point));
   };
+  auto bez1 = piecewiseBezier();
+  auto bez2 = other.piecewiseBezier();
 
-  std::vector<std::pair<Curve, Curve>> subcurve_pairs;
-
-  if (this != &curve)
-    subcurve_pairs.emplace_back(*this, *this);
-  else
+  for (Curve& b1 : bez1)
   {
-    // for self intersections divide curve into subcurves at extrema
-    auto t = extrema();
-    std::sort(t.begin(), t.end());
-    std::vector<Curve> subcurves;
-    subcurves.emplace_back(*this);
-    for (unsigned k = 0; k < t.size(); k++)
+    for (Curve& b2 : bez2)
     {
-      Curve new_curve = std::move(subcurves.back());
-      subcurves.pop_back();
-      subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).first);
-      subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).second);
-
-#if __cpp_init_captures
-      std::for_each(t.begin() + k + 1, t.end(), [t = t[k]](double& x) { x = (x - t) / (1 - t); });
-#else
-      std::for_each(t.begin() + k + 1, t.end(), [&t, k](double& x) { x = (x - t[k]) / (1 - t[k]); });
-#endif
+      if (!b1.boundingBox().intersects(b2.boundingBox()))
+        continue;
+      else
+        subcurve_pairs.emplace_back(b1, b2);
     }
-
-    // create all pairs of subcurves
-    for (unsigned k = 0; k < subcurves.size(); k++)
-      for (unsigned i = k + 1; i < subcurves.size(); i++)
-        subcurve_pairs.emplace_back(subcurves[k], subcurves[i]);
   }
 
   while (!subcurve_pairs.empty())
   {
-#if __cpp_structured_bindings
     auto [cp_a, cp_b] = std::move(subcurve_pairs.back());
-#else
-    Eigen::MatrixX2d cp_a, cp_b;
-    std::tie(cp_a, cp_b) = std::move(subcurve_pairs.back());
-#endif
     subcurve_pairs.pop_back();
 
-    BoundingBox bbox1(cp_a.boundingBox());
-    BoundingBox bbox2(cp_b.boundingBox());
+    BoundingBox bbox1 = cp_a.boundingBox();
+    BoundingBox bbox2 = cp_b.boundingBox();
 
     if (!bbox1.intersects(bbox2))
-      ; // no intersection
+      continue;
     else if (bbox1.diagonal().norm() < _epsilon)
       addIntersection(bbox1.center());
     else if (bbox2.diagonal().norm() < _epsilon)
@@ -704,15 +687,14 @@ PointVector Curve::intersections(const Curve& curve) const
       // - divide both segments in half
       // - insert all combinations for next iteration
       // - last pair is one where both subcurves have smallest t ranges
-      auto subcurve_a = cp_a.splitCurve(0.5);
-      auto subcurve_b = cp_b.splitCurve(0.5);
-      subcurve_pairs.emplace_back(subcurve_a.first, subcurve_b.first);
-      subcurve_pairs.emplace_back(subcurve_a.second, std::move(subcurve_b.first));
-      subcurve_pairs.emplace_back(std::move(subcurve_a.first), subcurve_b.second);
-      subcurve_pairs.emplace_back(std::move(subcurve_a.second), std::move(subcurve_b.second));
+      auto [sc1a, sc2a] = cp_a.splitCurve(0.5);
+      auto [sc1b, sc2b] = cp_b.splitCurve(0.5);
+      subcurve_pairs.emplace_back(sc1a, sc1b);
+      subcurve_pairs.emplace_back(sc2a, std::move(sc1b));
+      subcurve_pairs.emplace_back(std::move(sc1a), sc2b);
+      subcurve_pairs.emplace_back(std::move(sc2a), std::move(sc2b));
     }
   }
-
   return intersections;
 }
 
@@ -1054,8 +1036,8 @@ void Curve::applyContinuity(const Curve& source_curve, const std::vector<double>
   Eigen::MatrixXd pascal_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
   pascal_matrix.row(0).setOnes();
   for (unsigned k = 1; k <= c_order; k++)
-      for (unsigned i = 1; i <= k; i++)
-          pascal_matrix(i, k) = pascal_matrix(i - 1, k - 1) + pascal_matrix(i, k - 1);
+    for (unsigned i = 1; i <= k; i++)
+      pascal_matrix(i, k) = pascal_matrix(i - 1, k - 1) + pascal_matrix(i, k - 1);
 
   // inverse of pascal matrix, i.e., pascal matrix with alternating signs - colwise
   Eigen::MatrixXd pascal_alternating_matrix = pascal_matrix.transpose().inverse();
@@ -1064,21 +1046,21 @@ void Curve::applyContinuity(const Curve& source_curve, const std::vector<double>
   Eigen::MatrixXd bell_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
   bell_matrix(0, c_order) = 1;
   for (unsigned k = 0; k < c_order; k++)
-      bell_matrix.block(1, c_order - k - 1, k + 1, 1) =
-              bell_matrix.block(0, c_order - k, k + 1, k + 1) *
-              pascal_matrix.block(0, k, k + 1, 1)
-              .cwiseProduct(Eigen::Map<const Eigen::MatrixXd>(beta_coeffs.data(), k + 1, 1));
+    bell_matrix.block(1, c_order - k - 1, k + 1, 1) =
+        bell_matrix.block(0, c_order - k, k + 1, k + 1) *
+        pascal_matrix.block(0, k, k + 1, 1)
+            .cwiseProduct(Eigen::Map<const Eigen::MatrixXd>(beta_coeffs.data(), k + 1, 1));
 
   // diagonal: (N-1)! / (N-k-1)!
   Eigen::MatrixXd factorial_matrix(Eigen::MatrixXd::Zero(c_order + 1, c_order + 1));
   factorial_matrix(0, 0) = 1;
   for (unsigned k = 1; k <= c_order; k++)
-      factorial_matrix(k, k) = factorial_matrix(k - 1, k - 1) * (N_ - k);
+    factorial_matrix(k, k) = factorial_matrix(k - 1, k - 1) * (N_ - k);
 
   // derivatives of given curve
   Eigen::Matrix2Xd derivatives(Eigen::Index(2), Eigen::Index(c_order + 1));
   for (unsigned k = 0; k < c_order + 1; k++)
-      derivatives.col(k) = source_curve.derivativeAt(k, 1.0);
+    derivatives.col(k) = source_curve.derivativeAt(k, 1.0);
 
   // based on the beta coefficients and geometric continuity equations, calculate new derivatives
   Eigen::MatrixXd new_derivatives = (derivatives * bell_matrix).rowwise().reverse().transpose();

@@ -232,7 +232,7 @@ public:
    * \param curve Second curve
    * \return Vector of points where the curves intersect
    */
-  PointVector intersections(const Curve& curve) const;
+  PointVector intersections(const Curve& other) const;
 
   /*!
    * \brief Get the weight of the control point at index \c idx
