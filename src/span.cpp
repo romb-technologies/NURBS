@@ -5,14 +5,10 @@ using namespace NURBS;
 ///// Curve::Span
 
 Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p)
-    : wpoints_(wpoints), knots_(knot_v), p_(p)
+    : p_(p)
 {
-  update();
+  update(knot_v, wpoints);
 }
-
-Eigen::Ref<Eigen::MatrixX3d> Span::wpoints() const { return wpoints_; }
-
-Eigen::Ref<Eigen::ArrayXd> Span::knots() const { return knots_; }
 
 Eigen::MatrixXd Span::basisFunction() const { return basis_function_; }
 
@@ -20,10 +16,13 @@ Eigen::RowVectorXd Span::cachedWBF() const { return cached_wbf_; }
 
 Eigen::MatrixXd Span::cachedVBF() const { return cached_vbf_; }
 
-bool Span::contains(double t) const { return std::fabs(start() - end()) > _epsilon && t >= start() && t < end(); }
+bool Span::contains(double t) const { return std::fabs(start_ - end_) > _epsilon && t >= start() && t < end(); }
 
-void Span::update()
+void Span::update(Eigen::Ref<Eigen::ArrayXd> knots, Eigen::Ref<Eigen::MatrixX3d> wpoints)
 {
+  start_ = knots(p_ - 1);
+  end_ = knots(p_);
+
   // generate basis function
   Eigen::MatrixXd m(1, 1);
   m << 1;
@@ -42,8 +41,8 @@ void Span::update()
       Eigen::ArrayXd d0 = Eigen::ArrayXd::Constant(k - 1, start()),
                      d1 = Eigen::ArrayXd::Constant(k - 1, end() - start()), ddwn = Eigen::ArrayXd::Zero(k - 1);
 
-      ddwn = knots_.segment(i + 1, k - 1) - knots_.segment(i - k + 2, k - 1);
-      d0 -= knots_.segment(i - k + 2, k - 1);
+      ddwn = knots.segment(i + 1, k - 1) - knots.segment(i - k + 2, k - 1);
+      d0 -= knots.segment(i - k + 2, k - 1);
 
       d0 /= ddwn;
       d1 /= ddwn;
@@ -64,14 +63,14 @@ void Span::update()
 
   basis_function_ = m;
 
-  updateControlPoints();
+  updateControlPoints(wpoints);
 }
 
-void Span::updateControlPoints()
+void Span::updateControlPoints(Eigen::Ref<Eigen::MatrixX3d> wpoints)
 {
   // generate w_bf, v_bf
-  cached_vbf_ = basis_function_ * wpoints_.leftCols<2>();
-  cached_wbf_ = basis_function_ * wpoints_.col(2);
+  cached_vbf_ = basis_function_ * wpoints.leftCols<2>();
+  cached_wbf_ = basis_function_ * wpoints.col(2);
 }
 
 PointVector Span::polyline() const
@@ -96,7 +95,6 @@ Point Span::valueAt(double u) const
 void Span::resetCache()
 {
   cached_polyline_.reset();
-  updateControlPoints();
 }
 
 Point Span::derivativeAt(int n, double u) const
@@ -215,9 +213,3 @@ double Span::length(double t) const
 }
 
 double Span::length() const { return length(1.0); }
-
-void Span::reassign(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knots)
-{
-  new (&wpoints_) Eigen::Ref<Eigen::MatrixX3d>{wpoints};
-  new (&knots_) Eigen::Ref<Eigen::VectorXd>{knots};
-}

@@ -403,7 +403,7 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
 
   for (int i = std::max<int>(0, idx - p_); i <= idx && i < spans_.size(); i++)
   {
-    spans_[i].updateControlPoints();
+    spans_[i].updateControlPoints(weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();
@@ -739,7 +739,8 @@ void Curve::setKnot(int idx, double value)
   // todo: update only affected knots
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_),
+                     weighted_control_points_.middleRows(i, p_ + 1));
   }
 }
 
@@ -755,7 +756,7 @@ void Curve::setWeight(int idx, double value)
 
   for (int i = std::max<int>(0, idx - p_); i <= idx && i < spans_.size(); i++)
   {
-    spans_[i].updateControlPoints();
+    spans_[i].updateControlPoints(weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();
@@ -795,8 +796,9 @@ void Curve::insertKnot(double t, int r)
   wpoints_new.bottomRows(N_ - k + s) = weighted_control_points_.bottomRows(N_ - k + s);
 
   // setup new control points
-  Eigen::MatrixX3d wpoints_segment(sp.wpoints().topRows(p_ - s + 1));
-  Eigen::VectorXd t_segment(sp.knots());
+  Eigen::MatrixX3d wpoints_segment(weighted_control_points_
+                                   .middleRows(k - p_, p_ - s + 1));
+  Eigen::VectorXd t_segment(T_.segment(k - p_ + 1, 2 * p_));
 
   for (int j = 1; j <= r && j + s <= p_; j++) /* Insert the knot r times */
   {
@@ -825,8 +827,8 @@ void Curve::insertKnot(double t, int r)
   // reassign spans
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_),
+                     weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();
@@ -844,8 +846,8 @@ void Curve::appendPoint(Point point)
 
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_),
+                     weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   spans_.emplace_back(Span(weighted_control_points_.middleRows(N_ - p_, p_ + 1), T_.segment(N_ - p_ + 1, 2 * p_), p_));
@@ -892,7 +894,8 @@ void Curve::normalizeKnotVector()
   T_ /= T_(T_.rows() - 1);
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_),
+                     weighted_control_points_.middleRows(i, p_ + 1));
   }
 }
 
@@ -1007,8 +1010,8 @@ void Curve::removeKnot(int ix, int k)
   // reassign spans
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_),
+                     weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();
