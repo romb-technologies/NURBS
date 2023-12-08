@@ -36,11 +36,14 @@ void CustomScene::drawForeground(QPainter* painter, const QRectF& rect)
     for (int k = 0; k < items().size(); k++)
       for (int i = k; i < items().size(); i++)
       {
-        NURBS::PointVector inter;
-        inter = static_cast<qCurve*>(items()[i])->intersections(*static_cast<qCurve*>(items()[k]));
+        if (is_curve_item(items()[k]) && is_curve_item(items()[i]))
+        {
+          NURBS::PointVector inter;
+          inter = static_cast<qCurve*>(items()[i])->intersections(*static_cast<qCurve*>(items()[k]));
 
-        for (auto& dot : inter)
-          painter->drawEllipse(QPointF(dot.x(), dot.y()), 3, 3);
+          for (auto& dot : inter)
+            painter->drawEllipse(QPointF(dot.x(), dot.y()), 3, 3);
+        }
       }
   }
 }
