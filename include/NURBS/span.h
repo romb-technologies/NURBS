@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #include <unsupported/Eigen/FFT>
+#include <unsupported/Eigen/MatrixFunctions>
 
 namespace NURBS
 {
@@ -26,10 +27,9 @@ public:
   ~Span() = default;
   Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p);
 
-  /// Reference to this span's control points in its parent curve.
-  Eigen::Ref<Eigen::MatrixX3d> wpoints() const;
-  /// Reference to this span's knots in its parent curve.
-  Eigen::Ref<Eigen::ArrayXd> knots() const;
+  Span(Eigen::Ref<const Eigen::MatrixXd> basis_func,
+       Eigen::Ref<const Eigen::MatrixXd> vbf,
+       Eigen::Ref<const Eigen::RowVectorXd> wbf);
 
   /// Start knot of this span.
   inline double start() const { return start_; }
@@ -118,6 +118,10 @@ private:
   mutable std::optional<PointVector> cached_polyline_;
   mutable std::optional<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
                                                                         for calculating the length of the curve */
+  mutable std::optional<Eigen::MatrixXd> bernstein_coeffs_;
+  mutable std::optional<Eigen::MatrixXd> cached_left_;
+  mutable std::optional<Eigen::MatrixXd> cached_right_;
+
   /// This knot span's basis function
   Eigen::MatrixXd basis_function_;
   /// Weights times basis function
@@ -131,6 +135,8 @@ private:
   const uint p_;
 
   double start_, end_;
+
+  std::pair<Span, Span> splitSpan(double u) const;
 };
 } // namespace NURBS
 

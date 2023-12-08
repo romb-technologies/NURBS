@@ -4,10 +4,14 @@ using namespace NURBS;
 
 ///// Curve::Span
 
-Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p)
-    : p_(p)
+Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p) : p_(p)
 {
   update(knot_v, wpoints);
+}
+
+Span::Span(Eigen::Ref<const Eigen::MatrixXd> basis_func, Eigen::Ref<const Eigen::MatrixXd> vbf, Eigen::Ref<const Eigen::RowVectorXd> wbf)
+    : basis_function_(basis_func), cached_wbf_(wbf), cached_vbf_(vbf), p_(3) // todo: popravit p
+{
 }
 
 Eigen::MatrixXd Span::basisFunction() const { return basis_function_; }
@@ -95,6 +99,8 @@ Point Span::valueAt(double u) const
 void Span::resetCache()
 {
   cached_polyline_.reset();
+  cached_length_.reset();
+  cached_chebyshev_coeffs_.reset();
 }
 
 Point Span::derivativeAt(int n, double u) const
@@ -213,3 +219,11 @@ double Span::length(double t) const
 }
 
 double Span::length() const { return length(1.0); }
+
+std::pair<Span, Span> Span::splitSpan(double u) const
+{
+    Eigen::MatrixXd z = Eigen::MatrixXd::Zero(p_+1, p_+1);
+    z.diagonal() = _powSeries(u, p_);
+  return {Span(basis_function_, z * cached_vbf_, z * cached_wbf_.transpose()),
+          Span(basis_function_, z * cached_vbf_, z * cached_wbf_.transpose())};
+}
