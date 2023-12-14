@@ -409,9 +409,9 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
   resetCache();
 }
 
- std::pair<Point, Point> Curve::endPoints() const { return {controlPoint(0), controlPoint(N_ - 1)}; }
+std::pair<Point, Point> Curve::endPoints() const { return {controlPoint(0), controlPoint(N_ - 1)}; }
 
-//std::pair<Point, Point> Curve::endPoints() const { return {valueAt(0.0), valueAt(1.0)}; }
+// std::pair<Point, Point> Curve::endPoints() const { return {valueAt(0.0), valueAt(1.0)}; }
 
 void Curve::reverse()
 {
@@ -426,8 +426,8 @@ PointVector Curve::polyline(double flatness) const
     cached_polyline_ = PointVector();
     for (int i = 0; i < spans_.size(); i++)
     {
-//      PointVector poly = spans_[i].polyline();
-        PointVector poly = spans_[i].splitSpan(0.5).first.polyline();
+      PointVector poly = spans_[i].polyline();
+      // PointVector poly = spans_[i].splitSpan(0.5).first.polyline();
       cached_polyline_->insert(cached_polyline_->end(), poly.begin(), poly.end());
     }
   }
@@ -451,21 +451,26 @@ Eigen::MatrixX2d Curve::valueAt(const std::vector<double>& t_vector) const
   return out;
 }
 
-BoundingBox Curve::boundingBox() const
+BoundingBox Curve::boundingBox(bool use_roots) const
 {
-  if (!cached_bounding_box_)
+  if (use_roots)
   {
-    auto extremes = valueAt(extrema());
-    extremes.conservativeResize(extremes.rows() + 2, Eigen::NoChange);
-//    extremes.row(extremes.rows() - 1) = controlPoint(0);
-//    extremes.row(extremes.rows() - 2) = controlPoint(N_ - 1);
-    extremes.row(extremes.rows() - 1) = endPoints().first;
-    extremes.row(extremes.rows() - 2) = endPoints().second;
+    if (!cached_bounding_box_)
+    {
+      auto extremes = valueAt(extrema());
+      extremes.conservativeResize(extremes.rows() + 2, Eigen::NoChange);
+      extremes.row(extremes.rows() - 1) = endPoints().first;
+      extremes.row(extremes.rows() - 2) = endPoints().second;
 
-    cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
-                                       Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+      cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                                         Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+    }
+    return *cached_bounding_box_;
   }
-  return *cached_bounding_box_;
+  else
+  {
+    // convex hull
+  }
 }
 
 const Curve& Curve::derivative() const {}
@@ -529,36 +534,12 @@ std::vector<double> Curve::extrema() const
     {
       const Span& sp = spans_[i];
 
-      // d/du R(u)
-      Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
-      p1.topRows(p_) =
-          (sp.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+      std::vector<double> extr_sp = sp.extrema();
 
-      // d/du S(u)
-      Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
-      pb.head(p_) = (sp.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
-
-      Eigen::MatrixX2d poly(2 * p_ + 1, 2);
-      poly.col(0) = -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.cachedWBF());
-      poly.col(1) = -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.cachedWBF());
-
-      auto trimmed_x = _trimZeroes(poly.col(0));
-      auto trimmed_y = _trimZeroes(poly.col(1));
-
-      _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
-      if (trimmed_x.size() > 1)
+      for (int j = 0; j < extr_sp.size(); j++)
       {
-        poly_solver.compute(trimmed_x);
-        poly_solver.realRoots(roots);
+        extr.emplace_back(extr_sp[j] * (sp.end() - sp.start()) + sp.start());
       }
-      if (trimmed_y.size() > 1)
-      {
-        poly_solver.compute(trimmed_y);
-        poly_solver.realRoots(roots);
-      }
-      for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
-        if (roots[j] >= 0.0 && roots[j] <= 1.0)
-          extr.emplace_back(roots[j] * (sp.end() - sp.start()) + sp.start());
     }
   }
   return extr;
@@ -740,8 +721,7 @@ void Curve::setKnot(int idx, double value)
   // todo: update only affected knots
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update(T_.segment(i + 1, 2 * p_),
-                     weighted_control_points_.middleRows(i, p_ + 1));
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 }
 
@@ -797,8 +777,7 @@ void Curve::insertKnot(double t, int r)
   wpoints_new.bottomRows(N_ - k + s) = weighted_control_points_.bottomRows(N_ - k + s);
 
   // setup new control points
-  Eigen::MatrixX3d wpoints_segment(weighted_control_points_
-                                   .middleRows(k - p_, p_ - s + 1));
+  Eigen::MatrixX3d wpoints_segment(weighted_control_points_.middleRows(k - p_, p_ - s + 1));
   Eigen::VectorXd t_segment(T_.segment(k - p_ + 1, 2 * p_));
 
   for (int j = 1; j <= r && j + s <= p_; j++) /* Insert the knot r times */
@@ -828,8 +807,7 @@ void Curve::insertKnot(double t, int r)
   // reassign spans
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update(T_.segment(i + 1, 2 * p_),
-                     weighted_control_points_.middleRows(i, p_ + 1));
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();
@@ -847,8 +825,7 @@ void Curve::appendPoint(Point point)
 
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update(T_.segment(i + 1, 2 * p_),
-                     weighted_control_points_.middleRows(i, p_ + 1));
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   spans_.emplace_back(Span(weighted_control_points_.middleRows(N_ - p_, p_ + 1), T_.segment(N_ - p_ + 1, 2 * p_), p_));
@@ -895,8 +872,7 @@ void Curve::normalizeKnotVector()
   T_ /= T_(T_.rows() - 1);
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update(T_.segment(i + 1, 2 * p_),
-                     weighted_control_points_.middleRows(i, p_ + 1));
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 }
 
@@ -1011,8 +987,7 @@ void Curve::removeKnot(int ix, int k)
   // reassign spans
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].update(T_.segment(i + 1, 2 * p_),
-                     weighted_control_points_.middleRows(i, p_ + 1));
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();

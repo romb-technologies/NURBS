@@ -147,7 +147,7 @@ public:
    * \brief Get the bounding box of curve
    * \return Bounding box (if use_roots is false, returns the bounding box of control points)
    */
-  BoundingBox boundingBox() const;
+  BoundingBox boundingBox(bool use_roots = true) const;
 
   /*!
    * \brief Get the derivative of a curve

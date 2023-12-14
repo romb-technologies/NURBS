@@ -8,6 +8,7 @@
 
 #include <unsupported/Eigen/FFT>
 #include <unsupported/Eigen/MatrixFunctions>
+#include <unsupported/Eigen/Polynomials>
 
 namespace NURBS
 {
@@ -113,6 +114,16 @@ public:
    */
   Eigen::MatrixXd cachedVBF() const;
 
+  // todo: should be private
+  std::pair<Span, Span> splitSpan(double u) const;
+
+  /*!
+   * \brief Get the bounding box of this knot span
+   * \return Bounding box (if use_roots is false, returns the bounding box of control points)
+   */
+  BoundingBox boundingBox() const;
+  std::vector<double> extrema() const;
+
 private:
   mutable std::optional<double> cached_length_;
   mutable std::optional<PointVector> cached_polyline_;
@@ -136,7 +147,7 @@ private:
 
   double start_, end_;
 
-  std::pair<Span, Span> splitSpan(double u) const;
+  // std::pair<Span, Span> splitSpan(double u) const;
 };
 } // namespace NURBS
 

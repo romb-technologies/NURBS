@@ -9,8 +9,9 @@ Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot
   update(knot_v, wpoints);
 }
 
-Span::Span(Eigen::Ref<const Eigen::MatrixXd> basis_func, Eigen::Ref<const Eigen::MatrixXd> vbf, Eigen::Ref<const Eigen::RowVectorXd> wbf)
-    : basis_function_(basis_func), cached_wbf_(wbf), cached_vbf_(vbf), p_(3) // todo: popravit p
+Span::Span(Eigen::Ref<const Eigen::MatrixXd> basis_func, Eigen::Ref<const Eigen::MatrixXd> vbf,
+           Eigen::Ref<const Eigen::RowVectorXd> wbf)
+    : basis_function_(basis_func), cached_wbf_(wbf), cached_vbf_(vbf), p_(basis_func.rows() - 1)
 {
 }
 
@@ -222,8 +223,60 @@ double Span::length() const { return length(1.0); }
 
 std::pair<Span, Span> Span::splitSpan(double u) const
 {
-    Eigen::MatrixXd z = Eigen::MatrixXd::Zero(p_+1, p_+1);
-    z.diagonal() = _powSeries(u, p_);
+  Eigen::MatrixXd z = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
+  z.diagonal() = _powSeries(u, p_);
   return {Span(basis_function_, z * cached_vbf_, z * cached_wbf_.transpose()),
           Span(basis_function_, z * cached_vbf_, z * cached_wbf_.transpose())};
+}
+
+BoundingBox Span::boundingBox() const
+{
+  auto ex = extrema();
+  Eigen::MatrixXd extremes(ex.size() + 2, 2);
+  for (unsigned k = 0; k < ex.size(); k++)
+    extremes.row(k) = valueAt(ex[k]);
+
+  extremes.row(extremes.rows() - 1) = valueAt(0.0);
+  extremes.row(extremes.rows() - 2) = valueAt(1.0);
+
+  return BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                     Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+}
+
+std::vector<double> Span::extrema() const
+{
+  std::vector<double> extr;
+  Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
+
+  // d/du R(u)
+  Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
+  p1.topRows(p_) = (cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+
+  // d/du S(u)
+  Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
+  pb.head(p_) = (cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+
+  Eigen::MatrixX2d poly(2 * p_ + 1, 2);
+  poly.col(0) = -_multiplyPolynomials(pb, cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), cachedWBF());
+  poly.col(1) = -_multiplyPolynomials(pb, cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), cachedWBF());
+
+  auto trimmed_x = _trimZeroes(poly.col(0));
+  auto trimmed_y = _trimZeroes(poly.col(1));
+
+  _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
+  if (trimmed_x.size() > 1)
+  {
+    poly_solver.compute(trimmed_x);
+    poly_solver.realRoots(roots);
+  }
+  if (trimmed_y.size() > 1)
+  {
+    poly_solver.compute(trimmed_y);
+    poly_solver.realRoots(roots);
+  }
+  for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
+    if (roots[j] >= 0.0 && roots[j] <= 1.0)
+      extr.emplace_back(roots[j]);
+
+  return extr;
 }
