@@ -123,6 +123,9 @@ public:
    */
   BoundingBox boundingBox() const;
   std::vector<double> extrema() const;
+  PointVector intersections(const Span& other) const;
+  Eigen::MatrixXd splittingCoeffsLeft(double t) const;
+  Eigen::MatrixXd splittingCoeffsRight(double t) const;
 
 private:
   mutable std::optional<double> cached_length_;
@@ -132,6 +135,8 @@ private:
   mutable std::optional<Eigen::MatrixXd> bernstein_coeffs_;
   mutable std::optional<Eigen::MatrixXd> cached_left_;
   mutable std::optional<Eigen::MatrixXd> cached_right_;
+
+  mutable std::optional<BoundingBox> cached_bounding_box_;
 
   /// This knot span's basis function
   Eigen::MatrixXd basis_function_;

@@ -517,7 +517,7 @@ std::vector<double> Curve::roots() const
           poly_solver.realRoots(roots);
         }
         for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
-          cached_roots_->emplace_back(roots[i]);
+          cached_roots_->emplace_back(roots[j]);
       }
     }
   }
@@ -631,60 +631,12 @@ double Curve::projectPoint(const Point& point) const
 PointVector Curve::intersections(const Curve& other) const
 {
   PointVector intersections;
-  std::vector<std::pair<Curve, Curve>> subcurve_pairs;
-
-  // todo: self intersections
-  if (this == &other)
-    return intersections;
-
-  auto addIntersection = [&intersections](Point new_point) {
-    // check if not already found, and add new point
-    if (std::none_of(intersections.begin(), intersections.end(),
-                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
-      intersections.emplace_back(std::move(new_point));
-  };
-  auto bez1 = piecewiseBezier();
-  auto bez2 = other.piecewiseBezier();
-
-  for (Curve& b1 : bez1)
-  {
-    for (Curve& b2 : bez2)
+  for (int i = 0; i < spans_.size(); i++)
+    for (int j = 0; j < other.spans_.size(); j++)
     {
-      if (!b1.boundingBox().intersects(b2.boundingBox()))
-        continue;
-      else
-        subcurve_pairs.emplace_back(b1, b2);
+      PointVector ints = spans_[i].intersections(other.spans_[j]);
+      intersections.insert(intersections.end(), ints.begin(), ints.end());
     }
-  }
-
-  while (!subcurve_pairs.empty())
-  {
-    auto [cp_a, cp_b] = std::move(subcurve_pairs.back());
-    subcurve_pairs.pop_back();
-
-    BoundingBox bbox1 = cp_a.boundingBox();
-    BoundingBox bbox2 = cp_b.boundingBox();
-
-    if (!bbox1.intersects(bbox2))
-      continue;
-    else if (bbox1.diagonal().norm() < _epsilon)
-      addIntersection(bbox1.center());
-    else if (bbox2.diagonal().norm() < _epsilon)
-      addIntersection(bbox2.center());
-    else
-    {
-      // intersection exists, but segments are still too large
-      // - divide both segments in half
-      // - insert all combinations for next iteration
-      // - last pair is one where both subcurves have smallest t ranges
-      auto [sc1a, sc2a] = cp_a.splitCurve(0.5);
-      auto [sc1b, sc2b] = cp_b.splitCurve(0.5);
-      subcurve_pairs.emplace_back(sc1a, sc1b);
-      subcurve_pairs.emplace_back(sc2a, std::move(sc1b));
-      subcurve_pairs.emplace_back(std::move(sc1a), sc2b);
-      subcurve_pairs.emplace_back(std::move(sc2a), std::move(sc2b));
-    }
-  }
   return intersections;
 }
 

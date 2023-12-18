@@ -221,26 +221,71 @@ double Span::length(double t) const
 
 double Span::length() const { return length(1.0); }
 
+Eigen::MatrixXd Span::splittingCoeffsLeft(double t) const
+{
+
+  Eigen::MatrixXd coeffs(Eigen::MatrixXd::Zero(p_ + 1, p_ + 1));
+  if (t == 0.5)
+  {
+    if (!cached_left_)
+    {
+      coeffs.diagonal() = _powSeries(t, p_);
+      cached_left_ = basis_function_.inverse() * coeffs * basis_function_;
+    }
+    return cached_left_.value();
+  }
+  coeffs.diagonal() = _powSeries(t, p_);
+  return basis_function_.inverse() * coeffs * basis_function_;
+}
+
+Eigen::MatrixXd Span::splittingCoeffsRight(double t) const
+{
+  Eigen::MatrixXd coeffs(Eigen::MatrixXd::Zero(p_ + 1, p_ + 1));
+  if (t == 0.5)
+  {
+    if (!cached_right_)
+    {
+      for (unsigned k = 0; k < p_ + 1; k++)
+        coeffs.block(0, p_ + 1 - 1 - k, p_ + 1 - k, 1) = cached_left_->diagonal(-static_cast<int>(k)).reverse();
+      cached_right_ = coeffs;
+    }
+    return cached_right_.value();
+  }
+  Eigen::MatrixXd temp_splitting_coeffs_left = splittingCoeffsLeft(t);
+  for (unsigned k = 0; k < p_ + 1; k++)
+    coeffs.block(0, p_ + 1 - 1 - k, p_ + 1 - k, 1) =
+        temp_splitting_coeffs_left.diagonal(-static_cast<int>(k)).reverse();
+  return coeffs;
+}
+
 std::pair<Span, Span> Span::splitSpan(double u) const
 {
   Eigen::MatrixXd z = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
   z.diagonal() = _powSeries(u, p_);
   return {Span(basis_function_, z * cached_vbf_, z * cached_wbf_.transpose()),
           Span(basis_function_, z * cached_vbf_, z * cached_wbf_.transpose())};
+
+  // Eigen::MatrixXd zL = splittingCoeffsLeft(u), zR = splittingCoeffsRight(u);
+  // return {Span(basis_function_, zL * cached_vbf_, zL * cached_wbf_.transpose()),
+  //         Span(basis_function_, zR * cached_vbf_, zR * cached_wbf_.transpose())};
 }
 
 BoundingBox Span::boundingBox() const
 {
-  auto ex = extrema();
-  Eigen::MatrixXd extremes(ex.size() + 2, 2);
-  for (unsigned k = 0; k < ex.size(); k++)
-    extremes.row(k) = valueAt(ex[k]);
+  if (!cached_bounding_box_)
+  {
+    auto ex = extrema();
+    Eigen::MatrixXd extremes(ex.size() + 2, 2);
+    for (unsigned k = 0; k < ex.size(); k++)
+      extremes.row(k) = valueAt(ex[k]);
 
-  extremes.row(extremes.rows() - 1) = valueAt(0.0);
-  extremes.row(extremes.rows() - 2) = valueAt(1.0);
+    extremes.row(extremes.rows() - 1) = valueAt(0.0);
+    extremes.row(extremes.rows() - 2) = valueAt(1.0);
 
-  return BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
-                     Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+    cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                                       Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+  }
+  return cached_bounding_box_.value();
 }
 
 std::vector<double> Span::extrema() const
@@ -279,4 +324,107 @@ std::vector<double> Span::extrema() const
       extr.emplace_back(roots[j]);
 
   return extr;
+}
+
+// PointVector Span::intersections(const Span& other) const
+// {
+//   PointVector intersections;
+//   Eigen::PolynomialSolver<double, Eigen::Dynamic> solver;
+
+//   Eigen::VectorXd poly1, poly2;
+
+//   if (this == &other)
+//   {
+//       return intersections;
+//   }
+
+//   // // x
+//   // poly1 = cachedVBF().col(0) - other.cachedVBF().col(0);
+//   // auto trimmed_x = _trimZeroes(poly1);
+
+//   // x
+//   poly1 = _multiplyPolynomials(cachedVBF().row(0), other.cachedWBF());
+//   poly2 = _multiplyPolynomials(other.cachedVBF().row(0), cachedWBF());
+
+//   poly1 -= poly2;
+//   auto trimmed_x = _trimZeroes(poly1);
+
+//   // y
+//   poly1 = _multiplyPolynomials(cachedVBF().row(1), other.cachedWBF());
+//   poly2 = _multiplyPolynomials(other.cachedVBF().row(1), cachedWBF());
+
+//   poly1 -= poly2;
+//   auto trimmed_y = _trimZeroes(poly1);
+
+//   _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
+
+//   if (trimmed_x.size() > 1) {
+//       solver.compute(trimmed_x);
+//       solver.realRoots(roots);
+//   }
+//   if (trimmed_y.size() > 1) {
+//       solver.compute(trimmed_y);
+//       solver.realRoots(roots);
+//   }
+
+//   for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
+//   {
+//       if (roots[j] >= 0.0 && roots[j] <= 1.0)
+//           intersections.emplace_back(valueAt(roots[j]));
+//   }
+
+//   return intersections;
+// }
+
+PointVector Span::intersections(const Span& other) const
+{
+  PointVector intersections;
+  std::vector<std::pair<Span, Span>> subcurve_pairs;
+
+  // todo: self intersections
+  if (this == &other)
+  {
+    // auto [sp1, sp2] = splitSpan(0.5);
+    // subcurve_pairs.emplace_back(sp1, sp2);
+    return intersections;
+  }
+  else
+    subcurve_pairs.emplace_back(*this, other);
+
+  auto addIntersection = [&intersections](Point new_point) {
+    // check if not already found, and add new point
+    if (std::none_of(intersections.begin(), intersections.end(),
+                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
+      intersections.emplace_back(std::move(new_point));
+  };
+
+  while (!subcurve_pairs.empty())
+  {
+    auto [sp_a, sp_b] = std::move(subcurve_pairs.back());
+    subcurve_pairs.pop_back();
+
+    BoundingBox bbox1 = sp_a.boundingBox();
+    BoundingBox bbox2 = sp_b.boundingBox();
+
+    if (!bbox1.intersects(bbox2))
+      continue;
+    else if (bbox1.diagonal().norm() < _epsilon)
+      addIntersection(bbox1.center());
+    else if (bbox2.diagonal().norm() < _epsilon)
+      addIntersection(bbox2.center());
+    else
+    {
+      // intersection exists, but segments are still too large
+      // - divide both segments in half
+      // - insert all combinations for next iteration
+      // - last pair is one where both subcurves have smallest t ranges
+      auto [sc1a, sc2a] = sp_a.splitSpan(0.5);
+      auto [sc1b, sc2b] = sp_b.splitSpan(0.5);
+      subcurve_pairs.emplace_back(sc1a, sc1b);
+      subcurve_pairs.emplace_back(sc2a, std::move(sc1b));
+      subcurve_pairs.emplace_back(std::move(sc1a), sc2b);
+      subcurve_pairs.emplace_back(std::move(sc2a), std::move(sc2b));
+    }
+  }
+  return intersections;
 }
