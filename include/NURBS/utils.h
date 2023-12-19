@@ -23,11 +23,8 @@ inline double _pow(double base, unsigned exp)
 {
   double result = exp & 1 ? base : 1;
   while (exp >>= 1)
-  {
-    base *= base;
-    if (exp & 1)
+    if (base *= base, exp & 1)
       result *= base;
-  }
   return result;
 }
 
@@ -45,8 +42,8 @@ inline Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsign
   Eigen::RowVectorXd power_series = Eigen::RowVectorXd::Ones(exp + 1);
 
   for (uint i = 0; i < drv; i++)
-      for (uint j = 0; j <= exp; j++)
-          power_series(j) *= j - i;
+    for (uint j = 0; j <= exp; j++)
+      power_series(j) *= j - i;
 
   for (unsigned k = drv; k <= exp; k++)
     power_series(k) *= _pow(base, k - drv);
@@ -68,8 +65,15 @@ inline Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& poly1, const 
   for (int i = 0; i < poly1.size(); i++)
     for (int j = 0; j < poly2.size(); j++)
       result(i + j) += poly1(i) * poly2(j);
-
   return result;
+}
+
+inline Eigen::MatrixX2d _pointVectorToMatrix (PointVector pv)
+{
+    Eigen::MatrixX2d out(pv.size(), 2);
+    for (unsigned k = 0; k < pv.size(); k++)
+        out.row(k) = pv[k];
+    return out;
 }
 
 } // namespace NURBS

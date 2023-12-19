@@ -15,7 +15,6 @@ include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR} include)
 set(NURBS_SRC
   ${PROJECT_SOURCE_DIR}/src/nurbs.cpp
   ${PROJECT_SOURCE_DIR}/src/span.cpp
-  ${PROJECT_SOURCE_DIR}/src/utils.cpp
   )
 
 set(NURBS_INC
