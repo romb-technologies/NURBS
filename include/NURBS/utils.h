@@ -43,15 +43,14 @@ inline Eigen::RowVectorXd _powSeries(double base, unsigned exp)
 inline Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsigned drv)
 {
   Eigen::RowVectorXd power_series = Eigen::RowVectorXd::Ones(exp + 1);
+
   for (uint i = 0; i < drv; i++)
-  {
-    for (uint j = 0; j <= exp; j++)
-    {
-      power_series(j) *= j - i;
-    }
-  }
+      for (uint j = 0; j <= exp; j++)
+          power_series(j) *= j - i;
+
   for (unsigned k = drv; k <= exp; k++)
     power_series(k) *= _pow(base, k - drv);
+
   return power_series;
 }
 
