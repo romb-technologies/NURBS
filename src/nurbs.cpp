@@ -728,15 +728,9 @@ void Curve::setKnot(int idx, double value)
   if (idx < 0 || idx >= T_.rows())
     return;
 
-  if (idx > 0)
-    value = std::max(value, T_(idx - 1));
-  else
-    value = std::max(value, 0.0);
-  if (idx < T_.rows() - 1)
-    value = std::min(value, T_(idx + 1));
-  else
-    value = std::min(value, 1.0);
+  value = std::min(std::max(value, T_(idx - 1)), T_(idx + 1));
   T_(idx) = value;
+
   resetCache();
 
   // todo: update only affected knots
