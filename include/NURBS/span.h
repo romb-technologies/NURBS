@@ -24,7 +24,7 @@ class Span
 {
 public:
   ~Span() = default;
-  Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p);
+  Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, unsigned p);
 
   /// Reference to this span's control points in its parent curve.
   Eigen::Ref<Eigen::MatrixX3d> wpoints() const;
@@ -133,7 +133,7 @@ private:
    * \brief Span order
    * \warning Must always match curve order
    */
-  const uint p_;
+  const unsigned p_;
   /// Reference to this span's control points in its parent curve.
   Eigen::Ref<Eigen::MatrixX3d> wpoints_;
   /// Reference to this span's knots in its parent curve.

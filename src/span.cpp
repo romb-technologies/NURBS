@@ -142,7 +142,7 @@ double Span::length(double t) const
   if (t < 0.0 || t > 1.0)
     throw std::logic_error{"Length can only be calculated for t within [0.0, 1.0] range."};
 
-  auto evaluate_chebyshev = [](double t, const Eigen::VectorXd& coeff) {
+  auto evaluateChebyshev = [](double t, const Eigen::VectorXd& coeff) {
     t = 2 * t - 1;
     double tn{t}, tn_1{1}, res{coeff(0) + coeff(1) * t};
     for (unsigned k = 2; k < coeff.size(); k++)
@@ -158,6 +158,7 @@ double Span::length(double t) const
   {
     constexpr unsigned START_LOG_N = 10;
     unsigned log_n = START_LOG_N - 1;
+    // todo: počet s manje točaka (kasnije)
     unsigned n = _exp2(START_LOG_N - 1);
 
     Eigen::VectorXd derivative_cache(2);
@@ -209,9 +210,9 @@ double Span::length(double t) const
       cut++;
     cached_chebyshev_coeffs_ = Eigen::VectorXd(cut + 1);
     *cached_chebyshev_coeffs_ << 0, chebyshev.head(cut);
-    (*cached_chebyshev_coeffs_)(0) = -evaluate_chebyshev(0, *cached_chebyshev_coeffs_);
+    (*cached_chebyshev_coeffs_)(0) = -evaluateChebyshev(0, *cached_chebyshev_coeffs_);
   }
-  return evaluate_chebyshev(t, *cached_chebyshev_coeffs_);
+  return evaluateChebyshev(t, *cached_chebyshev_coeffs_);
 }
 
 double Span::length() const { return length(1.0); }
