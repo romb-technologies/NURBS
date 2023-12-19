@@ -40,6 +40,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         activeCurve->disconnect(ui->knotVector);
         activeCurve->disconnect(ui->weights);
       }
+
       if (qCurve* c = static_cast<CurveListWidgetItem*>(current)->curve; c != activeCurve)
         activeCurve = c;
       else

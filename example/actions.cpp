@@ -45,9 +45,7 @@ void MainWindow::on_actionConvert_to_Beziers_triggered()
   std::vector<NURBS::Curve> beziers = activeCurve->piecewiseBezier();
   removeActiveCurveFromScene();
   for (NURBS::Curve b : beziers)
-  {
     addCurveToScene(b, QString("Segment %1").arg(QString::number(counter++)));
-  }
   scene->update();
 }
 

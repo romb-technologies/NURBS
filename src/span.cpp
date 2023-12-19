@@ -58,9 +58,7 @@ void Span::update()
     }
   }
   else
-  {
     m = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
-  }
 
   basis_function_ = m;
 
@@ -80,9 +78,7 @@ PointVector Span::polyline() const
   {
     cached_polyline_ = PointVector();
     for (double u = 0.0; u < 1.0 + 0.01; u += 0.02)
-    {
       cached_polyline_->emplace_back(valueAt(u));
-    }
   }
   return *cached_polyline_;
 }
@@ -139,7 +135,7 @@ Point Span::derivativeAt(double u) const { return derivativeAt(1, u); }
 
 double Span::length(double t) const
 {
-  if (t < 0.0 || t > 1.0)
+  if (t > 1.0 || t < 0.0)
     throw std::logic_error{"Length can only be calculated for t within [0.0, 1.0] range."};
 
   auto evaluateChebyshev = [](double t, const Eigen::VectorXd& coeff) {
@@ -208,6 +204,7 @@ double Span::length(double t) const
     unsigned cut = 0;
     while (std::fabs(chebyshev(cut)) > _epsilon * 1e-2)
       cut++;
+
     cached_chebyshev_coeffs_ = Eigen::VectorXd(cut + 1);
     *cached_chebyshev_coeffs_ << 0, chebyshev.head(cut);
     (*cached_chebyshev_coeffs_)(0) = -evaluateChebyshev(0, *cached_chebyshev_coeffs_);

@@ -57,7 +57,6 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
   if (mouseEvent->button() == Qt::RightButton)
   {
     for (auto&& curve : selectedItems())
-    {
       if (is_curve)
       {
         dot = addEllipse(QRectF(QPointF(p.x(), p.y()), QSizeF(6, 6)), QPen(Qt::yellow),
@@ -66,7 +65,7 @@ void CustomScene::mousePressEvent(QGraphicsSceneMouseEvent* mouseEvent)
         tan = addLine(0, 0, 0, 0, QPen(Qt::blue));
         projectPointOntoCurve(c_curve, p);
       }
-    }
+
     show_projection = true;
   }
   if (mouseEvent->button() == Qt::LeftButton)
@@ -170,15 +169,8 @@ void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
   NURBS::Point p(mouseEvent->scenePos().x(), mouseEvent->scenePos().y());
 
   if (show_projection)
-  {
     for (auto&& curve : selectedItems())
-    {
-      if (is_curve)
-      {
-        projectPointOntoCurve(c_curve, p);
-      }
-    }
-  }
+      projectPointOntoCurve(c_curve, p);
 
   // move control points
   else if (update_cp)
@@ -194,6 +186,7 @@ void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
     emit cursorMove(mouseEvent->scenePos());
     update();
   }
+
   else if (update_weights)
   {
     auto curve = cp_to_update.first;
@@ -205,10 +198,10 @@ void CustomScene::mouseMoveEvent(QGraphicsSceneMouseEvent* mouseEvent)
     }
     number_display->setPlainText(QString::number(c_curve->weight(cp_to_update.second)));
   }
+
   else
-  {
     emit cursorMove(mouseEvent->scenePos());
-  }
+
   QGraphicsScene::mouseMoveEvent(mouseEvent);
 }
 
@@ -229,7 +222,6 @@ qCurve* CustomScene::getClosestCurve(NURBS::Point p, bool selected, double max_d
   double dist = max_dist;
   qCurve* out = nullptr;
   for (auto&& curve : selected ? selectedItems() : items())
-  {
     if (is_curve)
     {
       double t = c_curve->projectPoint(p);
@@ -240,7 +232,7 @@ qCurve* CustomScene::getClosestCurve(NURBS::Point p, bool selected, double max_d
         out = c_curve;
       }
     }
-  }
+
   return out;
 }
 

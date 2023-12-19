@@ -16,6 +16,7 @@ void qVectorField::setData(const std::vector<double> data, double min, double ma
   {
     QDoubleSpinBox* box = makeSpinBox(min, max, 0.01);
     box->setValue(data[i]);
+
     // pass valueChanged to parent
     connect(box, QOverload<double>::of(&QDoubleSpinBox::valueChanged), this,
             [this, i](double d) { emit valueChanged(i, d); });
@@ -45,9 +46,8 @@ QDoubleSpinBox* qVectorField::makeSpinBox(double min, double max, double step)
 void qVectorField::clear()
 {
   for (int i = 0; i < boxes.size(); i++)
-  {
     delete boxes[i];
-  }
+
   boxes.clear();
   disconnect();
 }
