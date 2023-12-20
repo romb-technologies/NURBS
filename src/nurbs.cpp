@@ -56,13 +56,6 @@ Curve& Curve::operator=(const Curve& curve)
 
 unsigned Curve::order() const { return p_; }
 
-int Bin(int n, int k)
-{
-  if (k == 0 || k == n)
-    return 1;
-  return Bin(n - 1, k - 1) + Bin(n - 1, k);
-}
-
 // (wake me up) wake me up inside (i can't wake up) wake me up inside (save me)
 void Curve::elevateOrder(unsigned t)
 {
@@ -80,10 +73,10 @@ void Curve::elevateOrder(unsigned t)
   bezalfs(0, 0) = bezalfs(new_p, p_) = 1.0;
   for (int i = 1; i <= new_p / 2; i++)
   {
-    double inv = 1.0 / Bin(new_p, i);
+    double inv = 1.0 / _binomial(new_p, i);
     int mpi = std::min((int)p_, i);
     for (int j = std::max(i - (int)t, 0); j <= mpi; j++)
-      bezalfs(i, j) = inv * Bin(p_, j) * Bin(t, i - j);
+      bezalfs(i, j) = inv * _binomial(p_, j) * _binomial(t, i - j);
   }
 
   for (int i = new_p / 2 + 1; i <= new_p - 1; i++)

@@ -76,6 +76,11 @@ inline Eigen::MatrixX2d _pointVectorToMatrix (PointVector pv)
     return out;
 }
 
+inline int _binomial(int n, int k)
+{
+  return k == 0 || k == n ? 1 : _binomial(n - 1, k - 1) + _binomial(n - 1, k);
+}
+
 } // namespace NURBS
 
 #endif
