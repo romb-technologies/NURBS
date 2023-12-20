@@ -9,6 +9,7 @@ namespace NURBS
 struct _PolynomialRoots : public std::vector<double>
 {
   explicit _PolynomialRoots(unsigned reserve) { std::vector<double>::reserve(reserve); }
+  explicit _PolynomialRoots() {}
   void clear() {}          // no-op so that PolynomialSolver::RealRoots() doesn't clear it
   void push_back(double t) // only allow valid roots
   {
@@ -68,18 +69,15 @@ inline Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& poly1, const 
   return result;
 }
 
-inline Eigen::MatrixX2d _pointVectorToMatrix (PointVector pv)
+inline Eigen::MatrixX2d _pointVectorToMatrix(PointVector pv)
 {
-    Eigen::MatrixX2d out(pv.size(), 2);
-    for (unsigned k = 0; k < pv.size(); k++)
-        out.row(k) = pv[k];
-    return out;
+  Eigen::MatrixX2d out(pv.size(), 2);
+  for (unsigned k = 0; k < pv.size(); k++)
+    out.row(k) = pv[k];
+  return out;
 }
 
-inline int _binomial(int n, int k)
-{
-  return k == 0 || k == n ? 1 : _binomial(n - 1, k - 1) + _binomial(n - 1, k);
-}
+inline int _binomial(int n, int k) { return k == 0 || k == n ? 1 : _binomial(n - 1, k - 1) + _binomial(n - 1, k); }
 
 } // namespace NURBS
 

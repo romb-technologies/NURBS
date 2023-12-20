@@ -24,16 +24,14 @@ Curve::Curve(Eigen::MatrixX2d points, int p) : N_(points.rows()), p_(p), T_(N_ +
     spans_.emplace_back(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_), p_);
 }
 
-Curve::Curve(const PointVector& points, int p) :
-    Curve(_pointVectorToMatrix(points), p)
-{}
+Curve::Curve(const PointVector& points, int p) : Curve(_pointVectorToMatrix(points), p) {}
 
 Curve::Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p)
     : N_(wpoints.rows()), p_(p), T_(N_ + p_ + 1), weighted_control_points_(wpoints)
 {
 
   T_ << knotvector;
-  for (int i = 0; i < N_ + p_ + 1 - knotvector.rows(); i++)
+  for (int i = 0; i < N_ + p_ + 1 - knotvector.size(); i++)
     T_ << T_.tail<1>();
 
   normalizeKnotVector();
@@ -348,7 +346,7 @@ PointVector Curve::controlPoints() const
 
 Point Curve::controlPoint(unsigned idx) const
 {
-  Eigen::Vector3d pt = weighted_control_points_.row(idx);
+  auto pt = weighted_control_points_.row(idx);
   return pt.head(2) / pt(2);
 }
 
@@ -372,12 +370,11 @@ void Curve::reverse()
 
 PointVector Curve::polyline(double flatness) const
 {
-  if (!cached_polyline_)
+  if (!cached_polyline_ && (cached_polyline_ = PointVector()))
   {
-    cached_polyline_ = PointVector();
-    for (int i = 0; i < spans_.size(); i++)
+    for (const auto& span : spans_)
     {
-      PointVector poly = spans_[i].polyline();
+      auto poly = span.polyline();
       cached_polyline_->insert(cached_polyline_->end(), poly.begin(), poly.end());
     }
   }
@@ -435,63 +432,18 @@ Vector Curve::derivativeAt(double t) const { return derivativeAt(1, t); }
 
 std::vector<double> Curve::roots() const
 {
-  if (!cached_roots_)
+  if (!cached_roots_ && (cached_roots_ = std::vector<double>()))
   {
-    cached_roots_ = std::vector<double>();
-    if (N_ > 1)
-    {
-      Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-      for (int i = 0; i < spans_.size(); i++)
-      {
-        Eigen::MatrixXd bezier_polynomial = spans_[i].cachedVBF();
+    if (N_ <= 1)
+      return *cached_roots_;
 
-        auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
-        auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
-
-        _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
-        if (trimmed_x.size() > 1)
-        {
-          poly_solver.compute(trimmed_x);
-          poly_solver.realRoots(roots);
-        }
-        if (trimmed_y.size() > 1)
-        {
-          poly_solver.compute(trimmed_y);
-          poly_solver.realRoots(roots);
-        }
-        for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
-          cached_roots_->emplace_back(roots[i]);
-      }
-    }
-  }
-  return *cached_roots_;
-}
-
-std::vector<double> Curve::extrema() const
-{
-  std::vector<double> extr;
-  if (N_ > 1)
-  {
     Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-    for (int i = 0; i < spans_.size(); i++)
+    for (const auto& span : spans_)
     {
-      const Span& sp = spans_[i];
+      auto bezier_polynomial = span.cachedVBF();
 
-      // d/du R(u)
-      Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
-      p1.topRows(p_) =
-          (sp.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
-
-      // d/du S(u)
-      Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
-      pb.head(p_) = (sp.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
-
-      Eigen::MatrixX2d poly(2 * p_ + 1, 2);
-      poly.col(0) = -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), sp.cachedWBF());
-      poly.col(1) = -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), sp.cachedWBF());
-
-      auto trimmed_x = _trimZeroes(poly.col(0));
-      auto trimmed_y = _trimZeroes(poly.col(1));
+      auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
+      auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
 
       _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
       if (trimmed_x.size() > 1)
@@ -504,11 +456,56 @@ std::vector<double> Curve::extrema() const
         poly_solver.compute(trimmed_y);
         poly_solver.realRoots(roots);
       }
-      for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
-        if (roots[j] >= 0.0 && roots[j] <= 1.0)
-          extr.emplace_back(roots[j] * (sp.end() - sp.start()) + sp.start());
+      for (int j = 0; j < roots.size(); j++)
+        cached_roots_->emplace_back(roots[j]);
     }
   }
+  return *cached_roots_;
+}
+
+std::vector<double> Curve::extrema() const
+{
+  std::vector<double> extr;
+
+  if (N_ <= 1)
+    return extr;
+
+  Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
+  for (const auto& span : spans_)
+  {
+    // d/du R(u)
+    Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
+    p1.topRows(p_) =
+        (span.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+
+    // d/du S(u)
+    Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
+    pb.head(p_) = (span.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+
+    Eigen::MatrixX2d poly(2 * p_ + 1, 2);
+    poly.col(0) =
+        -_multiplyPolynomials(pb, span.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), span.cachedWBF());
+    poly.col(1) =
+        -_multiplyPolynomials(pb, span.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), span.cachedWBF());
+
+    auto trimmed_x = _trimZeroes(poly.col(0));
+    auto trimmed_y = _trimZeroes(poly.col(1));
+
+    _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
+    if (trimmed_x.size() > 1)
+    {
+      poly_solver.compute(trimmed_x);
+      poly_solver.realRoots(roots);
+    }
+    if (trimmed_y.size() > 1)
+    {
+      poly_solver.compute(trimmed_y);
+      poly_solver.realRoots(roots);
+    }
+    for (int j = 0; j < roots.size(); j++)
+      extr.emplace_back(roots[j] * (span.end() - span.start()) + span.start());
+  }
+
   return extr;
 }
 
@@ -548,31 +545,31 @@ double Curve::projectPoint(const Point& point) const
 {
   std::pair<double, double> min_point(0.0, (point - valueAt(0.0)).norm());
 
-  for (int i = 0; i < spans_.size(); i++)
+  for (const auto& span : spans_)
   {
-    const Span& sp = spans_[i];
-
-    if (std::fabs(sp.start() - sp.end()) < _epsilon)
+    if (std::fabs(span.start() - span.end()) < _epsilon)
       continue;
 
     Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
 
     p1.topRows(p_) =
-        (sp.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
+        (span.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
 
     Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
-    pb.head(p_) = (sp.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
+    pb.head(p_) = (span.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
 
-    Eigen::MatrixX2d left = sp.cachedVBF() - (point * sp.cachedWBF()).transpose();
+    Eigen::MatrixX2d left = span.cachedVBF() - (point * span.cachedWBF()).transpose();
 
     Eigen::MatrixX2d right(2 * p_ + 1, 2);
-    right.col(0) = -_multiplyPolynomials(pb, sp.cachedVBF().col(0)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(0));
-    right.col(1) = -_multiplyPolynomials(pb, sp.cachedVBF().col(1)) + _multiplyPolynomials(sp.cachedWBF(), p1.col(1));
+    right.col(0) =
+        -_multiplyPolynomials(pb, span.cachedVBF().col(0)) + _multiplyPolynomials(span.cachedWBF(), p1.col(0));
+    right.col(1) =
+        -_multiplyPolynomials(pb, span.cachedVBF().col(1)) + _multiplyPolynomials(span.cachedWBF(), p1.col(1));
 
     Eigen::VectorXd poly =
         _multiplyPolynomials(left.col(0), right.col(0)) + _multiplyPolynomials(left.col(1), right.col(1));
 
-    std::vector<double> candidates;
+    _PolynomialRoots candidates;
     Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
     auto trim = _trimZeroes(poly);
     if (trim.size() > 0)
@@ -582,12 +579,9 @@ double Curve::projectPoint(const Point& point) const
 
     for (int i = 0; i < candidates.size(); i++)
     {
-      double t = candidates[i] * (sp.end() - sp.start()) + sp.start();
-      if (t >= 0 && t <= 1)
-      {
-        double dist = (point - valueAt(t)).norm();
-        min_point = dist < min_point.second ? std::make_pair(t, dist) : min_point;
-      }
+      double t = candidates[i] * (span.end() - span.start()) + span.start();
+      double dist = (point - valueAt(t)).norm();
+      min_point = dist < min_point.second ? std::make_pair(t, dist) : min_point;
     }
   }
 
@@ -624,7 +618,6 @@ PointVector Curve::intersections(const Curve& curve) const
       subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).second);
 
       std::for_each(t.begin() + k + 1, t.end(), [t = t[k]](double& x) { x = (x - t) / (1 - t); });
-
     }
 
     // create all pairs of subcurves
@@ -672,25 +665,28 @@ void Curve::resetCache()
   cached_bounding_box_.reset();
   cached_polyline_.reset();
 
-  for (int i = 0; i < spans_.size(); i++)
-    spans_[i].resetCache();
+  for (auto& span : spans_)
+    span.resetCache();
 }
 
 Eigen::ArrayXd Curve::knotVector() const { return T_; }
 
 void Curve::setKnot(int idx, double value)
 {
-  if (idx < 0 || idx >= T_.rows())
+  if (idx < 0 || idx >= T_.size())
     return;
 
-  value = std::min(std::max(value, T_(idx - 1)), T_(idx + 1));
+  double a = (idx == 0 ? 0.0 : T_(idx - 1));
+  double b = (idx == T_.size() - 1 ? 1.0 : T_(idx + 1));
+
+  value = std::min(std::max(value, a), b);
   T_(idx) = value;
 
   resetCache();
 
-  // todo: update only affected knots
-  for (int i = 0; i < spans_.size(); i++)
-    spans_[i].update();
+  // todo: update only affected knot spans
+  for (auto& span : spans_)
+    span.update();
 }
 
 double Curve::knot(int idx) const { return T_(idx); }
@@ -727,7 +723,7 @@ void Curve::insertKnot(double t, int r)
   const Span& sp = spans_[k - p_];
   r = std::min(r, int(p_ + 1 - s));
 
-  int mp = T_.rows();
+  int mp = T_.size();
   int nq = N_ + r;
 
   // create new knot vector
@@ -764,8 +760,7 @@ void Curve::insertKnot(double t, int r)
   weighted_control_points_ = wpoints_new;
 
   for (int i = 0; i < r; i++)
-    spans_.emplace_back(
-        weighted_control_points_.middleRows(nq - (p_ + 1), p_ + 1), T_.segment(nq - p_, 2 * p_), p_);
+    spans_.emplace_back(weighted_control_points_.middleRows(nq - (p_ + 1), p_ + 1), T_.segment(nq - p_, 2 * p_), p_);
 
   // reassign spans
   for (int i = 0; i < spans_.size(); i++)
@@ -817,9 +812,9 @@ std::vector<Curve> Curve::piecewiseBezier() const
   std::vector<Curve> out;
   while (temp.N_ > p_ + 1)
   {
-    auto pair = temp.splitCurve(temp.T_(p_ + 1));
-    out.emplace_back(pair.first);
-    temp = pair.second;
+    auto [bezier, rest] = temp.splitCurve(temp.T_(p_ + 1));
+    out.emplace_back(bezier);
+    temp = rest;
   }
   out.emplace_back(temp);
   return out;
@@ -828,16 +823,16 @@ std::vector<Curve> Curve::piecewiseBezier() const
 void Curve::normalizeKnotVector()
 {
   T_ -= T_(0);
-  T_ /= T_(T_.rows() - 1);
-  for (int i = 0; i < spans_.size(); i++)
-    spans_[i].update();
+  T_ /= T_(T_.size() - 1);
+  for (auto& span : spans_)
+    span.update();
 }
 
 Span& Curve::getKnotSpan(double t) const
 {
-  for (int i = 0; i < spans_.size(); i++)
-    if (spans_[i].contains(t))
-      return spans_[i];
+  for (auto& span : spans_)
+    if (span.contains(t))
+      return span;
 
   return spans_.back();
 }
@@ -855,13 +850,11 @@ double Curve::length(double t) const
   if (t < _epsilon)
     return 0.0;
 
-  int ix = 0;
-  double len = 0.0;
+  auto spans_end = spans_.end(); // TODO: calculate when to stop based on t
+  double last_span_length = 0.0; // TODO: calculate the remaining length in the last span based on t
 
-  for (Span& sp : spans_)
-    len += sp.length();
-
-  return len;
+  return std::accumulate(spans_.begin(), spans_end, last_span_length,
+                         [](double sum, const Span& span) { return sum + span.length(); });
 }
 
 double Curve::length() const { return length(1.0); }
@@ -877,7 +870,7 @@ void Curve::removeKnot(int ix, int k)
   Eigen::MatrixX3d Pt;
 
   int t, i, j;
-  Pt = Eigen::MatrixX3d(T_.rows(), 3);
+  Pt = Eigen::MatrixX3d(T_.size(), 3);
   for (t = 0; t < k && t < s; t++)
   {
 
@@ -932,10 +925,10 @@ void Curve::removeKnot(int ix, int k)
     spans_.pop_back();
 
   // reassign spans
-  for (int i = 0; i < spans_.size(); i++)
+  for (auto& span : spans_)
   {
-    spans_[i].reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    spans_[i].update();
+    span.reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
+    span.update();
   }
 
   resetCache();
@@ -947,14 +940,14 @@ Curve Curve::join(Curve& other)
   if (p_ != other.p_)
     return *this;
 
-  auto ends1 = endPoints();
-  auto ends2 = other.endPoints();
+  auto [s1, e1] = endPoints();
+  auto [s2, e2] = other.endPoints();
 
-  if ((ends1.second - ends2.second).norm() < (ends1.second - ends2.first).norm())
+  if ((e1 - e2).norm() < (e1 - s2).norm())
     other.reverse();
-  if ((ends1.first - ends2.first).norm() < (ends1.second - ends2.first).norm())
+  if ((s1 - s2).norm() < (e1 - s2).norm())
     this->reverse();
-  if ((ends1.first - ends2.second).norm() < (ends1.first - ends2.first).norm())
+  if ((s1 - e2).norm() < (s1 - s2).norm())
   {
     this->reverse();
     other.reverse();
@@ -966,7 +959,7 @@ Curve Curve::join(Curve& other)
   Eigen::ArrayXd knots(points.rows() + p_ + 1);
   knots << T_.head(N_ + p_ - 1), other.T_.tail(other.N_ + p_ - 1) + T_(N_ + p_);
 
-  return Curve(points.leftCols(2), p_);
+  return Curve(points, knots, p_);
 }
 
 void Curve::applyContinuity(const Curve& source_curve, const std::vector<double>& beta_coeffs)
