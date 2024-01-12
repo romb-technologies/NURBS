@@ -346,7 +346,7 @@ public:
    * \param other Reference to second curve
    * \return New curve that is a result of joining the two curves
    */
-  Curve join(Curve& other);
+  Curve join(Curve other);
 
   /*!
    * \brief Make this curve continuous with \c source_curve

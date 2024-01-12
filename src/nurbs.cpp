@@ -36,7 +36,6 @@ Curve::Curve(Eigen::MatrixX3d wpoints, Eigen::ArrayXd knotvector, int p)
 
   normalizeKnotVector();
 
-  // spans
   for (unsigned i = 0; i < N_ - p_; i++)
     spans_.emplace_back(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_), p_);
 }
@@ -934,7 +933,7 @@ void Curve::removeKnot(int ix, int k)
   resetCache();
 }
 
-Curve Curve::join(Curve& other)
+Curve Curve::join(Curve other)
 {
   // todo: elevate order
   if (p_ != other.p_)

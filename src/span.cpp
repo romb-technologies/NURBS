@@ -20,7 +20,7 @@ Eigen::RowVectorXd Span::cachedWBF() const { return cached_wbf_; }
 
 Eigen::MatrixXd Span::cachedVBF() const { return cached_vbf_; }
 
-bool Span::contains(double t) const { return std::fabs(start() - end()) > _epsilon && t >= start() && t < end(); }
+bool Span::contains(double t) const { return end() - start() > _epsilon && t >= start() && t < end(); }
 
 void Span::update()
 {
@@ -28,37 +28,32 @@ void Span::update()
   Eigen::MatrixXd m(1, 1);
   m << 1;
 
-  if (std::fabs(start() - end()) > _epsilon) // start_t_ != end_t_
+  if (end() - start() <= _epsilon) // start_t_ == end_t_
   {
-    int i = p_ - 1;
-    for (int k = 2; k <= p_ + 1; k++)
-    {
-      Eigen::MatrixXd m1(k, k - 1), m2 = Eigen::MatrixXd::Zero(k - 1, k), m3(k, k - 1),
-                                    m4 = Eigen::MatrixXd::Zero(k - 1, k);
-
-      m1 << m, Eigen::MatrixXd::Zero(1, k - 1);
-      m3 << Eigen::MatrixXd::Zero(1, k - 1), m;
-
-      Eigen::ArrayXd d0 = Eigen::ArrayXd::Constant(k - 1, start()),
-                     d1 = Eigen::ArrayXd::Constant(k - 1, end() - start()), ddwn = Eigen::ArrayXd::Zero(k - 1);
-
-      ddwn = knots_.segment(i + 1, k - 1) - knots_.segment(i - k + 2, k - 1);
-      d0 -= knots_.segment(i - k + 2, k - 1);
-
-      d0 /= ddwn;
-      d1 /= ddwn;
-
-      m2.diagonal() = 1 - d0;
-      m2.diagonal(1) = d0;
-
-      m4.diagonal() = -d1;
-      m4.diagonal(1) = d1;
-
-      m = (m1 * m2) + (m3 * m4);
-    }
+    basis_function_ = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
+    updateControlPoints();
+    return;
   }
-  else
-    m = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
+
+  for (int k = 2, i = p_ - 1; k <= p_ + 1; k++)
+  {
+
+    Eigen::MatrixXd m1(k, k - 1), m2(k - 1, k), m3(k, k - 1), m4(k - 1, k);
+    m1 << m, Eigen::MatrixXd::Zero(1, k - 1);
+    m3 << Eigen::MatrixXd::Zero(1, k - 1), m;
+    m2.setZero(), m4.setZero();
+
+    Eigen::ArrayXd d0(k - 1), d1(k - 1), ddwn(k - 1);
+    d0.setConstant(start()), d1.setConstant(end() - start());
+
+    ddwn = knots_.segment(i + 1, k - 1) - knots_.segment(i - k + 2, k - 1);
+    d0 -= knots_.segment(i - k + 2, k - 1);
+
+    d0 /= ddwn, d1 /= ddwn;
+    m2.diagonal() = 1 - d0, m2.diagonal(1) = d0;
+    m4.diagonal() = -d1, m4.diagonal(1) = d1;
+    m = (m1 * m2) + (m3 * m4);
+  }
 
   basis_function_ = m;
 
@@ -104,19 +99,19 @@ Point Span::derivativeAt(int n, double u) const
   Eigen::RowVectorXd pwd2 = _powSeriesDerivative(u, p_, 2);
   Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 3);
 
-  Eigen::MatrixX2d r = cached_vbf_;
-  Eigen::VectorXd s = cached_wbf_;
+  auto& r = cached_vbf_;
+  auto& s = cached_wbf_;
 
   Eigen::RowVector2d ru = pw * r;
   double su = pw.dot(s);
 
   // derivatives of 1/S(u) in point t
-  double d1su = -pwd1.dot(s) / _pow(su, 2);
+  double d1su = -pwd1.dot(s)/_pow(su, 2);
 
-  double d2su = -pwd2.dot(s) / _pow(su, 2) + 2 * _pow(pwd1.dot(s), 2) / _pow(su, 3);
+  double d2su = -pwd2.dot(s)/_pow(su, 2) + 2*_pow(pwd1.dot(s), 2)/_pow(su, 3);
 
-  double d3su = -(pwd3.dot(s) / _pow(su, 2)) + 4 * (pwd1.dot(s) * pwd2.dot(s) / _pow(su, 3)) -
-                6 * (_pow(pwd1.dot(s), 3) / _pow(su, 4));
+  double d3su = -(pwd3.dot(s)/_pow(su, 2)) + 4*(pwd1.dot(s)*pwd2.dot(s)/_pow(su, 3)) -
+                6*(_pow(pwd1.dot(s), 3)/_pow(su, 4));
 
   switch (n)
   {
