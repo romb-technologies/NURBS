@@ -683,9 +683,10 @@ void Curve::setKnot(int idx, double value)
 
   resetCache();
 
-  // todo: update only affected knot spans
-  for (auto& span : spans_)
-    span.update();
+  if (idx == 0 || idx == T_.size()-1)
+      return;
+  for (int i=std::max(0.0, idx-2.0*p_); i<=std::min((int)spans_.size()-1, idx-1); i++)
+    spans_[i].update();
 }
 
 double Curve::knot(int idx) const { return T_(idx); }
