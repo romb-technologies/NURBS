@@ -546,7 +546,7 @@ double Curve::projectPoint(const Point& point) const
 
   for (const auto& span : spans_)
   {
-    if (std::fabs(span.start() - span.end()) < _epsilon)
+    if (std::fabs(span.start() - span.end()) < _epsilon) // if start==end
       continue;
 
     Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
