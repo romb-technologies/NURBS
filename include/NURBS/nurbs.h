@@ -342,8 +342,8 @@ public:
   void removeControlPoint(int ix);
 
   /*!
-   * \brief Join this curve with another curve to create a new curve
-   * \param other Reference to second curve
+   * \brief Join the end of this curve to the beginning of another curve to create a new curve
+   * \param other Second curve
    * \return New curve that is a result of joining the two curves
    */
   Curve join(Curve other);

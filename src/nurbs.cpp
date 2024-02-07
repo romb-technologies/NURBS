@@ -935,21 +935,13 @@ void Curve::removeKnot(int ix, int k)
 
 Curve Curve::join(Curve other)
 {
-  // todo: elevate order
-  if (p_ != other.p_)
-    return *this;
-
-  auto [s1, e1] = endPoints();
-  auto [s2, e2] = other.endPoints();
-
-  if ((e1 - e2).norm() < (e1 - s2).norm())
-    other.reverse();
-  if ((s1 - s2).norm() < (e1 - s2).norm())
-    this->reverse();
-  if ((s1 - e2).norm() < (s1 - s2).norm())
+  if (this->p_ < other.p_)
   {
-    this->reverse();
-    other.reverse();
+    elevateOrder(other.p_ - p_);
+  }
+  else if (this->p_ < other.p_)
+  {
+    other.elevateOrder(p_ - other.p_);
   }
 
   Eigen::MatrixX3d points(N_ + other.N_, 3);

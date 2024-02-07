@@ -113,6 +113,7 @@ Point Span::derivativeAt(int n, double u) const
   double d3su = -(pwd3.dot(s)/_pow(su, 2)) + 4*(pwd1.dot(s)*pwd2.dot(s)/_pow(su, 3)) -
                 6*(_pow(pwd1.dot(s), 3)/_pow(su, 4));
 
+  // known formulas for first three derivatives
   switch (n)
   {
   case 1:
