@@ -24,10 +24,6 @@ bool Span::contains(double t) const { return end() - start() > _epsilon && t >= 
 
 void Span::update()
 {
-  // generate basis function
-  Eigen::MatrixXd m(1, 1);
-  m << 1;
-
   if (end() - start() <= _epsilon) // start_t_ == end_t_
   {
     basis_function_ = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
@@ -35,12 +31,16 @@ void Span::update()
     return;
   }
 
+  // generate basis function
+  basis_function_.resize(1, 1);
+  basis_function_ << 1;
+
   for (int k = 2, i = p_ - 1; k <= p_ + 1; k++)
   {
 
     Eigen::MatrixXd m1(k, k - 1), m2(k - 1, k), m3(k, k - 1), m4(k - 1, k);
-    m1 << m, Eigen::MatrixXd::Zero(1, k - 1);
-    m3 << Eigen::MatrixXd::Zero(1, k - 1), m;
+    m1 << basis_function_, Eigen::MatrixXd::Zero(1, k - 1);
+    m3 << Eigen::MatrixXd::Zero(1, k - 1), basis_function_;
     m2.setZero(), m4.setZero();
 
     Eigen::ArrayXd d0(k - 1), d1(k - 1), ddwn(k - 1);
@@ -50,12 +50,12 @@ void Span::update()
     d0 -= knots_.segment(i - k + 2, k - 1);
 
     d0 /= ddwn, d1 /= ddwn;
-    m2.diagonal() = 1 - d0, m2.diagonal(1) = d0;
-    m4.diagonal() = -d1, m4.diagonal(1) = d1;
-    m = (m1 * m2) + (m3 * m4);
+    m2.diagonal() = 1 - d0;
+    m2.diagonal(1) = d0;
+    m4.diagonal() = -d1;
+    m4.diagonal(1) = d1;
+    basis_function_ = (m1 * m2) + (m3 * m4);
   }
-
-  basis_function_ = m;
 
   updateControlPoints();
 }

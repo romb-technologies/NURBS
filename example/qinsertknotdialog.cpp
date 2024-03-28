@@ -6,6 +6,6 @@ QInsertKnotDialog::QInsertKnotDialog(QWidget *parent) : QDialog(parent)
     layout = new QFormLayout();
     knot = new QDoubleSpinBox();
     multi = new QSpinBox();
-    layout.addRow(tr("Knot"), knot);
-    layout.addRow(tr("Multiplicity"), multi);
+    layout->addRow(tr("Knot"), knot);
+    layout->addRow(tr("Multiplicity"), multi);
 }

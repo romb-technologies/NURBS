@@ -14,9 +14,9 @@ class QInsertKnotDialog : public QDialog
 public:
     QInsertKnotDialog(QWidget *parent = nullptr);
 private:
-    QFormLayout layout;
-    QDoubleSpinBox knot;
-    QSpinBox multi;
+    QFormLayout *layout;
+    QDoubleSpinBox *knot;
+    QSpinBox *multi;
 };
 
 #endif // QINSERTKNOTDIALOG_H
