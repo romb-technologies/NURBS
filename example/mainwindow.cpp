@@ -29,8 +29,6 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
   addCurveToScene(curve1);
   addCurveToScene(curve2);
 
-  addCurveToScene(curve1.join(curve2));
-
   // --- end of scene setup ---
 
   // init knot vector and weight display
@@ -193,3 +191,5 @@ void MainWindow::clearInfoDisplay()
 }
 
 MainWindow::~MainWindow() { delete ui; }
+
+

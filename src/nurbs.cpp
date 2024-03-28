@@ -102,17 +102,10 @@ void Curve::elevateOrder(unsigned t)
     ub = T_(b);
     int oldr = r;
     r = p_ - mul;
-    int lbz, rbz;
 
-    if (oldr > 0)
-      lbz = (oldr + 2) / 2;
-    else
-      lbz = 1;
+    int lbz = (oldr > 0) ? (oldr + 2) / 2 : 1;
+    int rbz = (r > 0) ? new_p - (r + 1) / 2 : new_p;
 
-    if (r > 0)
-      rbz = new_p - (r + 1) / 2;
-    else
-      rbz = new_p;
     if (r > 0)
     { /* Insert knot to get Bezier segment */
       double numer = ub - ua;

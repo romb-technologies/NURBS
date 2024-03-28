@@ -39,7 +39,7 @@ void MainWindow::on_actionDisplay_knots_toggled(bool arg1)
 
 void MainWindow::on_actionDelete_triggered()
 {
-  removeActiveCurveFromScene();
+    removeActiveCurveFromScene();
   scene->update();
 }
 
@@ -70,4 +70,10 @@ void MainWindow::on_actionLower_order_triggered()
     return;
   activeCurve->lowerOrder();
   scene->update();
+}
+
+
+void MainWindow::on_actionInsert_knot_triggered()
+{
+
 }
