@@ -28,9 +28,8 @@ public:
   ~Span() = default;
   Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p);
 
-  Span(Eigen::Ref<const Eigen::MatrixXd> basis_func,
-       Eigen::Ref<const Eigen::MatrixXd> vbf,
-       Eigen::Ref<const Eigen::RowVectorXd> wbf);
+  Span(Eigen::Ref<const Eigen::MatrixXd> basis_func, Eigen::Ref<const Eigen::MatrixXd> vbf,
+       Eigen::Ref<const Eigen::RowVectorXd> wbf, double start, double end);
 
   /// Start knot of this span.
   inline double start() const { return start_; }
@@ -115,27 +114,25 @@ public:
   Eigen::MatrixXd cachedVBF() const;
 
   // todo: should be private
-  std::pair<Span, Span> splitSpan(double u) const;
+  std::pair<Span, Span> splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const;
 
   /*!
    * \brief Get the bounding box of this knot span
-   * \return Bounding box (if use_roots is false, returns the bounding box of control points)
+   * \return Bounding box
    */
   BoundingBox boundingBox() const;
+  BoundingBox fastBoundingBox(Eigen::Ref<Eigen::MatrixXd> inverse_basis_function) const;
+
   std::vector<double> extrema() const;
   PointVector intersections(const Span& other) const;
-  Eigen::MatrixXd splittingCoeffsLeft(double t) const;
-  Eigen::MatrixXd splittingCoeffsRight(double t) const;
+
+  std::pair<Span, Span> splitSpan(double u) const;
 
 private:
   mutable std::optional<double> cached_length_;
   mutable std::optional<PointVector> cached_polyline_;
   mutable std::optional<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
                                                                         for calculating the length of the curve */
-  mutable std::optional<Eigen::MatrixXd> bernstein_coeffs_;
-  mutable std::optional<Eigen::MatrixXd> cached_left_;
-  mutable std::optional<Eigen::MatrixXd> cached_right_;
-
   mutable std::optional<BoundingBox> cached_bounding_box_;
 
   /// This knot span's basis function
