@@ -225,61 +225,6 @@ double Span::length(double t) const
 
 double Span::length() const { return length(1.0); }
 
-std::pair<Span, Span> Span::splitSpan(double u) const
-{
-  double mid = start() + (end() - start()) * u;
-  Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
-  Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
-  zL.diagonal() = _powSeries(u, p_);
-
-  zR(0, 0) = 1;
-  for (int i = 1; i < p_ + 1; i++)
-  {
-    zR.col(i) = zR.col(i - 1);
-    zR.col(i).tail(p_) += zR.col(i - 1).head(p_);
-  }
-  for (int i = 0; i < p_ + 1; i++)
-  {
-    zR.diagonal(i) *= _pow(u, i);
-    zR.row(i) *= _pow(1 - u, i);
-  }
-  return {Span(basis_function_, zL * cached_vbf_, zL * cached_wbf_.transpose(), start(), mid),
-          Span(basis_function_, zR * cached_vbf_, zR * cached_wbf_.transpose(), mid, end())};
-}
-
-std::pair<Span, Span> Span::splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const
-{
-  double mid = start() + (end() - start()) * u;
-
-  return {Span(basis_function_, zL * cached_vbf_, zL * cached_wbf_.transpose(), start(), mid),
-          Span(basis_function_, zR * cached_vbf_, zR * cached_wbf_.transpose(), mid, end())};
-}
-
-BoundingBox Span::boundingBox() const
-{
-  if (!cached_bounding_box_)
-  {
-    auto ex = extrema();
-    Eigen::MatrixXd extremes(ex.size() + 2, 2);
-    for (unsigned k = 0; k < ex.size(); k++)
-      extremes.row(k) = valueAt(ex[k]);
-
-    extremes.row(extremes.rows() - 1) = valueAt(0.0);
-    extremes.row(extremes.rows() - 2) = valueAt(1.0);
-
-    cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
-                                       Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
-  }
-  return cached_bounding_box_.value();
-}
-
-BoundingBox Span::fastBoundingBox(Eigen::Ref<Eigen::MatrixXd> inverse_basis_function) const
-{
-  Eigen::MatrixXd control_points_implicit = inverse_basis_function * cachedVBF();
-  return BoundingBox(Point(control_points_implicit.col(0).minCoeff(), control_points_implicit.col(1).minCoeff()),
-                     Point(control_points_implicit.col(0).maxCoeff(), control_points_implicit.col(1).maxCoeff()));
-}
-
 std::vector<double> Span::extrema() const
 {
   std::vector<double> extr;
@@ -318,12 +263,54 @@ std::vector<double> Span::extrema() const
   return extr;
 }
 
+BoundingBox Span::boundingBox() const
+{
+  if (!cached_bounding_box_)
+  {
+    auto ex = extrema();
+    Eigen::MatrixXd extremes(ex.size() + 2, 2);
+    for (unsigned k = 0; k < ex.size(); k++)
+      extremes.row(k) = valueAt(ex[k]);
+
+    extremes.row(extremes.rows() - 1) = valueAt(0.0);
+    extremes.row(extremes.rows() - 2) = valueAt(1.0);
+
+    cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                                       Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+  }
+  return cached_bounding_box_.value();
+}
+
+Span::SplitPair_ Span::splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const
+{
+  return {zL * cached_vbf_, zL * cached_wbf_.transpose(), zR * cached_vbf_, zR * cached_wbf_.transpose()};
+}
+
+BoundingBox Span::fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVectorXd& wbf,
+                                  const Eigen::MatrixXd& inverse_basis_function)
+{
+  Eigen::MatrixXd control_points_implicit = inverse_basis_function * vbf;
+  Eigen::VectorXd weights_implicit = wbf * inverse_basis_function.transpose();
+  control_points_implicit = control_points_implicit.array().colwise() / weights_implicit.array();
+
+  return BoundingBox(Point(control_points_implicit.col(0).minCoeff(), control_points_implicit.col(1).minCoeff()),
+                     Point(control_points_implicit.col(0).maxCoeff(), control_points_implicit.col(1).maxCoeff()));
+}
+
 PointVector Span::intersections(const Span& other) const
 {
   PointVector intersections;
-  std::vector<std::pair<Span, Span>> subcurve_pairs;
+
+  if (!boundingBox().intersects(other.boundingBox()))
+    return intersections;
+
   const unsigned max_intersections = p_ * other.p_;
+  intersections.reserve(max_intersections);
+
   Point start_this = valueAt(0.0), start_other = other.valueAt(0.0);
+
+  std::vector<SplitPair_> subcurve_pairs;
+  subcurve_pairs.reserve(16);
 
   // Splitting matrices based on the curves' degrees
   auto splittingCoeffs = [](unsigned p) {
@@ -350,32 +337,35 @@ PointVector Span::intersections(const Span& other) const
   // Self-intersections
   if (this == &other)
   {
-    auto [sp1, sp2] = splitSpan(0.5, zL_a, zR_a);
-    subcurve_pairs.emplace_back(sp1, sp2);
+    auto pair_init = SplitPair_(zL_a * cachedVBF(), zL_a * cachedWBF().transpose(), zR_a * cachedVBF(),
+                                zR_a * cachedWBF().transpose());
+    subcurve_pairs.emplace_back(pair_init);
     start_other = other.valueAt(0.5);
   }
   else
-    subcurve_pairs.emplace_back(*this, other);
+    subcurve_pairs.emplace_back(cachedVBF(), cachedWBF(), other.cachedVBF(), other.cachedWBF());
 
   // Check if intersection already exists, if not then add it
-  auto addIntersection = [&intersections, start_this, start_other](Point new_point) {
+  auto addIntersection = [&intersections, start_this, start_other](const Point& new_point) {
     if (std::none_of(intersections.begin(), intersections.end(),
                      [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }) &&
         ((new_point - start_this).norm() >= _epsilon) && ((new_point - start_other).norm() >= _epsilon))
-      intersections.emplace_back(std::move(new_point));
+    {
+      intersections.push_back(new_point);
+    }
   };
 
-  // Cached inverse basis function for bounding box checks
+  // Cached basis function inverse for bounding box checks
   Eigen::MatrixXd inv_a = basisFunction().inverse();
   Eigen::MatrixXd inv_b = other.basisFunction().inverse();
 
   while (!subcurve_pairs.empty() && intersections.size() <= max_intersections)
   {
-    auto [sp_a, sp_b] = std::move(subcurve_pairs.back());
+    SplitPair_ pair = std::move(subcurve_pairs.back());
     subcurve_pairs.pop_back();
 
-    BoundingBox bbox1 = sp_a.fastBoundingBox(inv_a);
-    BoundingBox bbox2 = sp_b.fastBoundingBox(inv_b);
+    BoundingBox bbox1 = fastBoundingBox(pair.vbf_a, pair.wbf_a, inv_a);
+    BoundingBox bbox2 = fastBoundingBox(pair.vbf_b, pair.wbf_b, inv_b);
 
     if (!bbox1.intersects(bbox2))
       continue;
@@ -385,16 +375,15 @@ PointVector Span::intersections(const Span& other) const
       addIntersection(bbox2.center());
     else
     {
-      // intersection exists, but segments are still too large
-      // - divide both segments in half
-      // - insert all combinations for next iteration
-      // - last pair is one where both subcurves have smallest t ranges
-      auto [sc1a, sc2a] = sp_a.splitSpan(0.5, zL_a, zR_a);
-      auto [sc1b, sc2b] = sp_b.splitSpan(0.5, zL_b, zR_b);
-      subcurve_pairs.emplace_back(sc1a, sc1b);
-      subcurve_pairs.emplace_back(sc2a, std::move(sc1b));
-      subcurve_pairs.emplace_back(std::move(sc1a), sc2b);
-      subcurve_pairs.emplace_back(std::move(sc2a), std::move(sc2b));
+      auto pair_a = SplitPair_(zL_a * pair.vbf_a, zL_a * pair.wbf_a.transpose(), zR_a * pair.vbf_a,
+                               zR_a * pair.wbf_a.transpose());
+      auto pair_b = SplitPair_(zL_b * pair.vbf_b, zL_b * pair.wbf_b.transpose(), zR_b * pair.vbf_b,
+                               zR_b * pair.wbf_b.transpose());
+
+      subcurve_pairs.emplace_back(pair_a.vbf_a, pair_a.wbf_a, pair_b.vbf_a, pair_b.wbf_a);
+      subcurve_pairs.emplace_back(pair_a.vbf_a, pair_a.wbf_a, pair_b.vbf_b, pair_b.wbf_b);
+      subcurve_pairs.emplace_back(pair_a.vbf_b, pair_a.wbf_b, pair_b.vbf_a, pair_b.wbf_a);
+      subcurve_pairs.emplace_back(pair_a.vbf_b, pair_a.wbf_b, pair_b.vbf_b, pair_b.wbf_b);
     }
   }
   return intersections;

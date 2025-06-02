@@ -113,20 +113,15 @@ public:
    */
   Eigen::MatrixXd cachedVBF() const;
 
-  // todo: should be private
-  std::pair<Span, Span> splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const;
-
   /*!
    * \brief Get the bounding box of this knot span
    * \return Bounding box
    */
   BoundingBox boundingBox() const;
-  BoundingBox fastBoundingBox(Eigen::Ref<Eigen::MatrixXd> inverse_basis_function) const;
-
   std::vector<double> extrema() const;
   PointVector intersections(const Span& other) const;
 
-  std::pair<Span, Span> splitSpan(double u) const;
+  // std::pair<Span, Span> splitSpan(double u) const;
 
 private:
   mutable std::optional<double> cached_length_;
@@ -146,10 +141,20 @@ private:
    * \warning Must always match curve order
    */
   const uint p_;
-
   double start_, end_;
 
-  // std::pair<Span, Span> splitSpan(double u) const;
+  struct SplitPair_
+  {
+    SplitPair_(Eigen::MatrixXd vbf_a, Eigen::RowVectorXd wbf_a, Eigen::MatrixXd vbf_b, Eigen::RowVectorXd wbf_b)
+        : vbf_a(vbf_a), wbf_a(wbf_a), vbf_b(vbf_b), wbf_b(wbf_b)
+    {
+    }
+    Eigen::MatrixXd vbf_a, vbf_b;
+    Eigen::RowVectorXd wbf_a, wbf_b;
+  };
+  SplitPair_ splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const;
+  static inline BoundingBox fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVectorXd& wbf,
+                                            const Eigen::MatrixXd& inverse_basis_function);
 };
 } // namespace NURBS
 
