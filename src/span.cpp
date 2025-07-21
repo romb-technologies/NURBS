@@ -281,11 +281,6 @@ BoundingBox Span::boundingBox() const
   return cached_bounding_box_.value();
 }
 
-Span::SplitPair_ Span::splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const
-{
-  return {zL * cached_vbf_, zL * cached_wbf_.transpose(), zR * cached_vbf_, zR * cached_wbf_.transpose()};
-}
-
 BoundingBox Span::fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVectorXd& wbf,
                                   const Eigen::MatrixXd& inverse_basis_function)
 {
@@ -300,9 +295,12 @@ BoundingBox Span::fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVe
 PointVector Span::intersections(const Span& other) const
 {
   PointVector intersections;
+  const double epsilon_length = _epsilon * (length() + other.length()) / 2;
 
   if (!boundingBox().intersects(other.boundingBox()))
+  {
     return intersections;
+  }
 
   const unsigned max_intersections = p_ * other.p_;
   intersections.reserve(max_intersections);
@@ -310,7 +308,6 @@ PointVector Span::intersections(const Span& other) const
   Point start_this = valueAt(0.0), start_other = other.valueAt(0.0);
 
   std::vector<SplitPair_> subcurve_pairs;
-  subcurve_pairs.reserve(16);
 
   // Splitting matrices based on the curves' degrees
   auto splittingCoeffs = [](unsigned p) {
@@ -346,10 +343,11 @@ PointVector Span::intersections(const Span& other) const
     subcurve_pairs.emplace_back(cachedVBF(), cachedWBF(), other.cachedVBF(), other.cachedWBF());
 
   // Check if intersection already exists, if not then add it
-  auto addIntersection = [&intersections, start_this, start_other](const Point& new_point) {
-    if (std::none_of(intersections.begin(), intersections.end(),
-                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }) &&
-        ((new_point - start_this).norm() >= _epsilon) && ((new_point - start_other).norm() >= _epsilon))
+  auto addIntersection = [&intersections, start_this, start_other, epsilon_length](const Point& new_point) {
+    if (std::none_of(
+            intersections.begin(), intersections.end(),
+            [&new_point, epsilon_length](const Point& point) { return (point - new_point).norm() < epsilon_length; }) &&
+        ((new_point - start_this).norm() >= epsilon_length) && ((new_point - start_other).norm() >= epsilon_length))
     {
       intersections.push_back(new_point);
     }
@@ -386,5 +384,6 @@ PointVector Span::intersections(const Span& other) const
       subcurve_pairs.emplace_back(pair_a.vbf_b, pair_a.wbf_b, pair_b.vbf_b, pair_b.wbf_b);
     }
   }
+
   return intersections;
 }

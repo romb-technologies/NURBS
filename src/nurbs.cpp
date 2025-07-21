@@ -634,6 +634,8 @@ PointVector Curve::intersections(const Curve& other) const
   for (int i = 0; i < spans_.size(); i++)
     for (int j = 0; j < other.spans_.size(); j++)
     {
+      if (this == &other && j < i)
+        continue;
       PointVector ints = spans_[i].intersections(other.spans_[j]);
       intersections.insert(intersections.end(), ints.begin(), ints.end());
     }

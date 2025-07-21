@@ -121,8 +121,6 @@ public:
   std::vector<double> extrema() const;
   PointVector intersections(const Span& other) const;
 
-  // std::pair<Span, Span> splitSpan(double u) const;
-
 private:
   mutable std::optional<double> cached_length_;
   mutable std::optional<PointVector> cached_polyline_;
@@ -152,7 +150,12 @@ private:
     Eigen::MatrixXd vbf_a, vbf_b;
     Eigen::RowVectorXd wbf_a, wbf_b;
   };
-  SplitPair_ splitSpan(double u, Eigen::MatrixXd zL, Eigen::MatrixXd zR) const;
+  /*!
+   * \brief Get the bounding box of this knot span's implicit control points
+   * \warning This bounding box is bigger than the bounds of the actual curve and
+   * should not be used for precise calculations.
+   * \return Bounding box
+   */
   static inline BoundingBox fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVectorXd& wbf,
                                             const Eigen::MatrixXd& inverse_basis_function);
 };
