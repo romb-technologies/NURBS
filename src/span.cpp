@@ -1,7 +1,4 @@
 #include "NURBS/span.h"
-#include <unsupported/Eigen/NonLinearOptimization>
-
-#include <iostream>
 
 using namespace NURBS;
 

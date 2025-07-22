@@ -1,9 +1,5 @@
 #include "NURBS/nurbs.h"
 
-// testing
-#include <chrono>
-#include <iostream>
-
 using namespace NURBS;
 
 ///// Curve::Curve
@@ -409,9 +405,7 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
   resetCache();
 }
 
-std::pair<Point, Point> Curve::endPoints() const { return {controlPoint(0), controlPoint(N_ - 1)}; }
-
-// std::pair<Point, Point> Curve::endPoints() const { return {valueAt(0.0), valueAt(1.0)}; }
+std::pair<Point, Point> Curve::endPoints() const { return {valueAt(T_(p_ + 1)), valueAt(T_(N_))}; }
 
 void Curve::reverse()
 {
@@ -427,7 +421,6 @@ PointVector Curve::polyline(double flatness) const
     for (int i = 0; i < spans_.size(); i++)
     {
       PointVector poly = spans_[i].polyline();
-      // PointVector poly = spans_[i].splitSpan(0.5).first.polyline();
       cached_polyline_->insert(cached_polyline_->end(), poly.begin(), poly.end());
     }
   }
@@ -469,7 +462,9 @@ BoundingBox Curve::boundingBox(bool use_roots) const
   }
   else
   {
-    // convex hull
+    Eigen::MatrixX2d unweighted_pts = weighted_control_points_.leftCols(2).array().colwise() / weights().array();
+    return BoundingBox(Point(unweighted_pts.col(0).minCoeff(), unweighted_pts.col(1).minCoeff()),
+                       Point(unweighted_pts.col(0).maxCoeff(), unweighted_pts.col(1).maxCoeff()));
   }
 }
 
@@ -627,7 +622,6 @@ double Curve::projectPoint(const Point& point) const
   return min_point.first;
 }
 
-// todo: fix
 PointVector Curve::intersections(const Curve& other) const
 {
   PointVector intersections;
@@ -791,14 +785,8 @@ std::pair<Curve, Curve> Curve::splitCurve(double t) const
 {
   Curve split(*this);
 
-  auto start = std::chrono::steady_clock::now();
-
   split.insertKnot(t, p_ + 1);
   int k = split.getKnotSpanIndex(t) - (p_ + 1);
-
-  auto end = std::chrono::steady_clock::now();
-  std::chrono::duration<double> elapsed_seconds = end - start;
-  //  std::cout << "splitCurve: " << elapsed_seconds.count() << "\n";
 
   int n1 = k + 1, n2 = split.N_ - n1;
   Curve c1(split.weighted_control_points_.topRows(n1), split.T_.head(n1 + p_ + 1), p_);

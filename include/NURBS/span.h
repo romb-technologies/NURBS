@@ -7,7 +7,6 @@
 #include "utils.h"
 
 #include <unsupported/Eigen/FFT>
-#include <unsupported/Eigen/MatrixFunctions>
 #include <unsupported/Eigen/Polynomials>
 
 namespace NURBS

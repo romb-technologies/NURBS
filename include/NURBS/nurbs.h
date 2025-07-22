@@ -376,7 +376,7 @@ private:
   mutable std::optional<std::vector<double>> cached_roots_; /*! If generated, stores roots for later use */
   mutable std::optional<BoundingBox> cached_bounding_box_;  /*! If generated, stores bounding box for later use */
   mutable std::optional<PointVector> cached_polyline_;      /*! If generated, stores polyline for later use */
-  mutable double cached_polyline_flatness_{};                      /*! Flatness of cached polyline */
+  mutable double cached_polyline_flatness_{};               /*! Flatness of cached polyline */
 
   /// Knot vector
   Eigen::ArrayXd T_;
