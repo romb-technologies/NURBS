@@ -493,9 +493,9 @@ std::vector<double> Curve::roots() const
     if (N_ > 1)
     {
       Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-      for (int i = 0; i < spans_.size(); i++)
+      for (const auto& span : spans_)
       {
-        Eigen::MatrixXd bezier_polynomial = spans_[i].cachedVBF();
+        Eigen::MatrixXd bezier_polynomial = span.cachedVBF();
 
         auto trimmed_x = _trimZeroes(bezier_polynomial.col(0));
         auto trimmed_y = _trimZeroes(bezier_polynomial.col(1));
@@ -524,16 +524,12 @@ std::vector<double> Curve::extrema() const
   std::vector<double> extr;
   if (N_ > 1)
   {
-    Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-    for (int i = 0; i < spans_.size(); i++)
+    for (const auto& span : spans_)
     {
-      const Span& sp = spans_[i];
-
-      std::vector<double> extr_sp = sp.extrema();
-
-      for (int j = 0; j < extr_sp.size(); j++)
+      std::vector<double> extr_sp = span.extrema();
+      for (auto ex : extr_sp)
       {
-        extr.emplace_back(extr_sp[j] * (sp.end() - sp.start()) + sp.start());
+        extr.emplace_back(ex * (span.end() - span.start()) + span.start());
       }
     }
   }
@@ -631,7 +627,8 @@ PointVector Curve::intersections(const Curve& other) const
       if (this == &other && j < i)
         continue;
       PointVector ints = spans_[i].intersections(other.spans_[j]);
-      intersections.insert(intersections.end(), ints.begin(), ints.end());
+      intersections.insert(intersections.end(), std::make_move_iterator(ints.begin()),
+                           std::make_move_iterator(ints.end()));
     }
   return intersections;
 }

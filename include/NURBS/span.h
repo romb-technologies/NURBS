@@ -140,15 +140,6 @@ private:
   const uint p_;
   double start_, end_;
 
-  struct SplitPair_
-  {
-    SplitPair_(Eigen::MatrixXd vbf_a, Eigen::RowVectorXd wbf_a, Eigen::MatrixXd vbf_b, Eigen::RowVectorXd wbf_b)
-        : vbf_a(vbf_a), wbf_a(wbf_a), vbf_b(vbf_b), wbf_b(wbf_b)
-    {
-    }
-    Eigen::MatrixXd vbf_a, vbf_b;
-    Eigen::RowVectorXd wbf_a, wbf_b;
-  };
   /*!
    * \brief Get the bounding box of this knot span's implicit control points
    * \warning This bounding box is bigger than the bounds of the actual curve and
