@@ -224,7 +224,6 @@ double Span::length() const { return length(1.0); }
 
 std::vector<double> Span::extrema() const
 {
-  std::vector<double> extr;
   Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
 
   // d/du R(u)
@@ -253,11 +252,8 @@ std::vector<double> Span::extrema() const
     poly_solver.compute(trimmed_y);
     poly_solver.realRoots(roots);
   }
-  for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
-    if (roots[j] >= 0.0 && roots[j] <= 1.0)
-      extr.emplace_back(roots[j]);
 
-  return extr;
+  return roots;
 }
 
 BoundingBox Span::boundingBox() const
@@ -291,7 +287,6 @@ BoundingBox Span::fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVe
 
 PointVector Span::intersections(const Span& other) const
 {
-
   PointVector intersections;
   const double epsilon_length = _epsilon * (length() + other.length()) / 2;
 
@@ -351,10 +346,10 @@ PointVector Span::intersections(const Span& other) const
 
   // Check if intersection already exists, if not then add it
   auto addIntersection = [&intersections, start_this, start_other, epsilon_length](const Point& new_point) {
-    if (std::none_of(
-            intersections.begin(), intersections.end(),
-            [&new_point, epsilon_length](const Point& point) { return (point - new_point).norm() < epsilon_length; }) &&
-        ((new_point - start_this).norm() >= epsilon_length) && ((new_point - start_other).norm() >= epsilon_length))
+    if ((new_point - start_this).norm() >= epsilon_length && (new_point - start_other).norm() >= epsilon_length //
+        && std::none_of(intersections.begin(), intersections.end(), [&new_point, epsilon_length](const Point& point) {
+             return (point - new_point).norm() < epsilon_length;
+           }))
     {
       intersections.push_back(new_point);
     }

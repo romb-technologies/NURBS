@@ -405,7 +405,7 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
   resetCache();
 }
 
-std::pair<Point, Point> Curve::endPoints() const { return {valueAt(T_(p_ + 1)), valueAt(T_(N_))}; }
+std::pair<Point, Point> Curve::endPoints() const { return {valueAt(T_(p_)), valueAt(T_(N_))}; }
 
 void Curve::reverse()
 {
@@ -511,8 +511,12 @@ std::vector<double> Curve::roots() const
           poly_solver.compute(trimmed_y);
           poly_solver.realRoots(roots);
         }
-        for (int j = 0; j < trimmed_x.size() + trimmed_y.size(); j++)
-          cached_roots_->emplace_back(roots[j]);
+        for (double u : roots)
+          cached_roots_->emplace_back(u * (span.end() - span.start()) + span.start());
+        std::sort(cached_roots_->begin(), cached_roots_->end());
+        cached_roots_->erase(std::unique(cached_roots_->begin(), cached_roots_->end(),
+                                         [](double a, double b) { return std::abs(a - b) < _epsilon; }),
+                             cached_roots_->end());
       }
     }
   }
@@ -532,6 +536,9 @@ std::vector<double> Curve::extrema() const
         extr.emplace_back(ex * (span.end() - span.start()) + span.start());
       }
     }
+    std::sort(extr.begin(), extr.end());
+    extr.erase(std::unique(extr.begin(), extr.end(), [](double a, double b) { return std::abs(a - b) < _epsilon; }),
+               extr.end());
   }
   return extr;
 }
