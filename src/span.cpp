@@ -95,32 +95,34 @@ Point Span::derivativeAt(int n, double u) const
   if (p_ < n)
     return Point(0, 0);
 
-  // derivatives of t power series
-  std::vector<Eigen::RowVectorXd> pwd;
-
+  // Derivatives of t power series
+  std::vector<Eigen::RowVectorXd> dt;
   for (int i = 0; i <= n; i++)
-    pwd.emplace_back(_powSeriesDerivative(u, p_, i));
+    dt.emplace_back(_powSeriesDerivative(u, p_, i));
 
-  auto& r = cached_vbf_;
-  auto& s = cached_wbf_;
+  const auto& V = cached_vbf_;
+  const auto& W = cached_wbf_;
 
-  std::vector<double> d_su;
-  d_su.emplace_back(1 / pwd[0].dot(s));
+  // g = 1/W
+  std::vector<double> dg;
+  dg.emplace_back(1 / dt[0].dot(W));
 
+  // Generalized derivative of 1/W
   for (int i = 1; i <= n; i++)
   {
-    double d_temp = 0;
+    double dg_temp = 0.0;
     for (int j = 1; j <= i; j++)
-      d_temp += _binomial(i, j) * pwd[j].dot(s) * d_su[i - j];
-    d_su.emplace_back(-d_su[0] * d_temp);
+      dg_temp += _binomial(i, j) * dt[j].dot(W) * dg[i - j];
+    dg.emplace_back(-dg[0] * dg_temp);
   }
 
-  Point val{0, 0};
+  // Leibniz product rule
+  Point deriv{0, 0};
   for (int i = 0; i <= n; i++)
   {
-    val += _binomial(n, i) * (pwd[n - i] * r) * d_su[i];
+    deriv += _binomial(n, i) * (dt[n - i] * V) * dg[i];
   }
-  return val;
+  return deriv;
 }
 
 Point Span::derivativeAt(double u) const { return derivativeAt(1, u); }
