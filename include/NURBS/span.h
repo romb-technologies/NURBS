@@ -88,6 +88,7 @@ public:
    * \return Curve derivative at t
    */
   Point derivativeAt(double u) const;
+
   /// Reset all privately cached data
   void resetCache();
   /*!

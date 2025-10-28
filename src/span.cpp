@@ -92,39 +92,35 @@ void Span::resetCache()
 
 Point Span::derivativeAt(int n, double u) const
 {
-  // temporary solution
+  if (p_ < n)
+    return Point(0, 0);
 
-  Eigen::RowVectorXd pw = _powSeries(u, p_);
-  Eigen::RowVectorXd pwd1 = _powSeriesDerivative(u, p_, 1);
-  Eigen::RowVectorXd pwd2 = _powSeriesDerivative(u, p_, 2);
-  Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 3);
+  // derivatives of t power series
+  std::vector<Eigen::RowVectorXd> pwd;
+
+  for (int i = 0; i <= n; i++)
+    pwd.emplace_back(_powSeriesDerivative(u, p_, i));
 
   auto& r = cached_vbf_;
   auto& s = cached_wbf_;
 
-  Eigen::RowVector2d ru = pw * r;
-  double su = pw.dot(s);
+  std::vector<double> d_su;
+  d_su.emplace_back(1 / pwd[0].dot(s));
 
-  // derivatives of 1/S(u) in point t
-  double d1su = -pwd1.dot(s)/_pow(su, 2);
-
-  double d2su = -pwd2.dot(s)/_pow(su, 2) + 2*_pow(pwd1.dot(s), 2)/_pow(su, 3);
-
-  double d3su = -(pwd3.dot(s)/_pow(su, 2)) + 4*(pwd1.dot(s)*pwd2.dot(s)/_pow(su, 3)) -
-                6*(_pow(pwd1.dot(s), 3)/_pow(su, 4));
-
-  // known formulas for first three derivatives
-  switch (n)
+  for (int i = 1; i <= n; i++)
   {
-  case 1:
-    return ru * d1su + (pwd1 * r) / su;
-  case 2:
-    return ru * d2su + 2 * (pwd1 * r) * d1su + (pwd2 * r) / su;
-  case 3:
-    return ru * d3su + 3 * (pwd1 * r) * d2su + 3 * (pwd2 * r) * d1su + (pwd3 * r) / su;
-  default:
-    return valueAt(u);
+    double d_temp = 0;
+    for (int j = 1; j <= i; j++)
+      d_temp += _binomial(i, j) * pwd[j].dot(s) * d_su[i - j];
+    d_su.emplace_back(-d_su[0] * d_temp);
   }
+
+  Point val{0, 0};
+  for (int i = 0; i <= n; i++)
+  {
+    val += _binomial(n, i) * (pwd[n - i] * r) * d_su[i];
+  }
+  return val;
 }
 
 Point Span::derivativeAt(double u) const { return derivativeAt(1, u); }
