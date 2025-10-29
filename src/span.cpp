@@ -90,10 +90,10 @@ void Span::resetCache()
   updateControlPoints();
 }
 
-Point Span::derivativeAt(int n, double u) const
+Vector Span::derivativeAt(int n, double u) const
 {
   if (p_ < n)
-    return Point(0, 0);
+    return Vector(0, 0);
 
   // Derivatives of t power series
   std::vector<Eigen::RowVectorXd> dt;
@@ -105,27 +105,25 @@ Point Span::derivativeAt(int n, double u) const
 
   // g = 1/W
   std::vector<double> dg;
+  dg.reserve(n + 1);
   dg.emplace_back(1 / dt[0].dot(W));
 
-  // Generalized derivative of 1/W
+  Vector derivative{0, 0};
+  derivative += (dt[n] * V) * dg[0];
   for (int i = 1; i <= n; i++)
   {
     double dg_temp = 0.0;
     for (int j = 1; j <= i; j++)
-      dg_temp += _binomial(i, j) * dt[j].dot(W) * dg[i - j];
+      dg_temp += _binomial(i, j) * dt[j].dot(W) * dg[i - j]; // Generalized derivative of 1/W
     dg.emplace_back(-dg[0] * dg_temp);
+
+    derivative += _binomial(n, i) * (dt[n - i] * V) * dg[i]; // Leibniz product rule
   }
 
-  // Leibniz product rule
-  Point deriv{0, 0};
-  for (int i = 0; i <= n; i++)
-  {
-    deriv += _binomial(n, i) * (dt[n - i] * V) * dg[i];
-  }
-  return deriv;
+  return derivative;
 }
 
-Point Span::derivativeAt(double u) const { return derivativeAt(1, u); }
+Vector Span::derivativeAt(double u) const { return derivativeAt(1, u); }
 
 double Span::length(double t) const
 {
