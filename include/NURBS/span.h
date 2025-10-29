@@ -80,14 +80,15 @@ public:
    * \param u Span parameter (ranges from 0.0 to 1.0, not start_t to end_t)
    * \return nth span derivative at u
    */
-  Point derivativeAt(int n, double u) const;
+  Vector derivativeAt(int n, double u) const;
 
   /*!
    * \brief Get value of a derivative for a given t
    * \param t Curve parameter
    * \return Curve derivative at t
    */
-  Point derivativeAt(double u) const;
+  Vector derivativeAt(double u) const;
+
   /// Reset all privately cached data
   void resetCache();
   /*!

@@ -90,44 +90,40 @@ void Span::resetCache()
   updateControlPoints();
 }
 
-Point Span::derivativeAt(int n, double u) const
+Vector Span::derivativeAt(int n, double u) const
 {
-  // temporary solution
+  if (p_ < n)
+    return Vector(0, 0);
 
-  Eigen::RowVectorXd pw = _powSeries(u, p_);
-  Eigen::RowVectorXd pwd1 = _powSeriesDerivative(u, p_, 1);
-  Eigen::RowVectorXd pwd2 = _powSeriesDerivative(u, p_, 2);
-  Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 3);
+  // Derivatives of t power series
+  std::vector<Eigen::RowVectorXd> dt;
+  for (int i = 0; i <= n; i++)
+    dt.emplace_back(_powSeriesDerivative(u, p_, i));
 
-  auto& r = cached_vbf_;
-  auto& s = cached_wbf_;
+  const auto& V = cached_vbf_;
+  const auto& W = cached_wbf_;
 
-  Eigen::RowVector2d ru = pw * r;
-  double su = pw.dot(s);
+  // g = 1/W
+  std::vector<double> dg;
+  dg.reserve(n + 1);
+  dg.emplace_back(1 / dt[0].dot(W));
 
-  // derivatives of 1/S(u) in point t
-  double d1su = -pwd1.dot(s)/_pow(su, 2);
-
-  double d2su = -pwd2.dot(s)/_pow(su, 2) + 2*_pow(pwd1.dot(s), 2)/_pow(su, 3);
-
-  double d3su = -(pwd3.dot(s)/_pow(su, 2)) + 4*(pwd1.dot(s)*pwd2.dot(s)/_pow(su, 3)) -
-                6*(_pow(pwd1.dot(s), 3)/_pow(su, 4));
-
-  // known formulas for first three derivatives
-  switch (n)
+  Vector derivative{0, 0};
+  derivative += (dt[n] * V) * dg[0];
+  for (int i = 1; i <= n; i++)
   {
-  case 1:
-    return ru * d1su + (pwd1 * r) / su;
-  case 2:
-    return ru * d2su + 2 * (pwd1 * r) * d1su + (pwd2 * r) / su;
-  case 3:
-    return ru * d3su + 3 * (pwd1 * r) * d2su + 3 * (pwd2 * r) * d1su + (pwd3 * r) / su;
-  default:
-    return valueAt(u);
+    double dg_temp = 0.0;
+    for (int j = 1; j <= i; j++)
+      dg_temp += _binomial(i, j) * dt[j].dot(W) * dg[i - j]; // Generalized derivative of 1/W
+    dg.emplace_back(-dg[0] * dg_temp);
+
+    derivative += _binomial(n, i) * (dt[n - i] * V) * dg[i]; // Leibniz product rule
   }
+
+  return derivative;
 }
 
-Point Span::derivativeAt(double u) const { return derivativeAt(1, u); }
+Vector Span::derivativeAt(double u) const { return derivativeAt(1, u); }
 
 double Span::length(double t) const
 {
