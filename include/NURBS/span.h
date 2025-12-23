@@ -62,7 +62,7 @@ public:
    * \brief Evaluate the polyline representation of this knot span.
    * \return A vector of polyline vertices
    */
-  PointVector polyline() const;
+  PointVector polyline(double flatness = 0.5) const;
   /*!
    * \brief Get the point on this knot span for a given t
    * \param u Span parameter

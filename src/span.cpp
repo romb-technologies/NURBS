@@ -79,15 +79,78 @@ void Span::updateControlPoints(Eigen::Ref<Eigen::MatrixX3d> wpoints)
   cached_wbf_ = basis_function_ * wpoints.col(2);
 }
 
-PointVector Span::polyline() const
+auto splittingCoeffs(unsigned p)
+{
+  Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
+  Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
+  zL.diagonal() = _powSeries(0.5, p);
+  zR(0, 0) = 1;
+  for (int i = 1; i < p + 1; i++)
+  {
+    zR.col(i) = zR.col(i - 1);
+    zR.col(i).tail(p) += zR.col(i - 1).head(p);
+  }
+  for (int i = 0; i < p + 1; i++)
+  {
+    zR.diagonal(i) *= _pow(0.5, i);
+    zR.row(i) *= _pow(0.5, i);
+  }
+  return std::make_pair(zL, zR);
+}
+
+PointVector Span::polyline(double flatness) const
 {
   if (!cached_polyline_)
   {
     cached_polyline_ = PointVector();
-    for (double u = 0.0; u < 1.0 + 0.01; u += 0.02)
+
+    typedef std::pair<Eigen::MatrixXd, Eigen::RowVectorXd> Subcurve;
+
+    const Eigen::RowVectorXd s0 = _powSeries(0.0, p_);
+    const Eigen::RowVectorXd s05 = _powSeries(0.5, p_);
+    const Eigen::RowVectorXd s1 = _powSeries(1.0, p_);
+
+    std::vector<Subcurve> subcurves;
+    subcurves.emplace_back(cached_vbf_, cached_wbf_);
+
+    flatness *= flatness;
+    const auto [sL, sR] = splittingCoeffs(p_);
+
+    double coeff{1};
+    if (p_ < 10)
     {
-      cached_polyline_->emplace_back(valueAt(u));
+      // for N_ == 10, coeff is 0.9922, so we ignore it for higher orders
+      coeff -= std::exp2(2. - p_);
+      coeff *= coeff;
     }
+
+    while (!subcurves.empty())
+    {
+      Subcurve sub(std::move(subcurves.back()));
+      subcurves.pop_back();
+
+      const Point p1 = s0 * sub.first;
+      const Point p2 = s1 * sub.first;
+      const Point pm = s05 * sub.first;
+      const Point u = p2 - p1;
+
+      Vector v = pm - p1;
+      double t = u.dot(v) / u.squaredNorm();
+
+      double norm = (p1 + t * u - pm).squaredNorm();
+
+      if (coeff * norm <= flatness)
+      {
+        cached_polyline_->emplace_back(s0 * sub.first);
+      }
+      else
+      {
+        subcurves.emplace_back(sR * sub.first, sub.second * sR);
+        subcurves.emplace_back(sL * sub.first, sub.second * sL);
+      }
+    }
+
+    cached_polyline_->emplace_back(valueAt(1.0));
   }
   return *cached_polyline_;
 }
