@@ -136,15 +136,16 @@ PointVector Span::polyline(double flatness) const
       Subcurve sub(std::move(subcurves.back()));
       subcurves.pop_back();
 
-      const Point p1 = splits.row(0) * sub.first;
-      const Point p2 = splits.row(p_) * sub.first;
+      const Point p1 = (splits.row(0) * sub.first) / splits.row(0).dot(sub.second);
+      const Point p2 = (splits.row(p_) * sub.first) / splits.row(p_).dot(sub.second);
+
       Vector u = p2 - p1;
 
       double max_dev = 0.0;
 
-      for (Eigen::Index i = 0; i < splits.rows(); ++i)
+      for (int i = 0; i < splits.rows(); ++i)
       {
-        const Point q = splits.row(i) * sub.first;
+        const Point q = (splits.row(i) * sub.first) / splits.row(i).dot(sub.second);
         const Vector v = q - p1;
         const double t = u.dot(v) / u.squaredNorm();
 
@@ -165,8 +166,8 @@ PointVector Span::polyline(double flatness) const
       }
       else
       {
-        subcurves.emplace_back(sR * sub.first, sub.second * sR);
-        subcurves.emplace_back(sL * sub.first, sub.second * sL);
+        subcurves.emplace_back(sR * sub.first, sR * sub.second.transpose());
+        subcurves.emplace_back(sL * sub.first, sL * sub.second.transpose());
       }
     }
 
