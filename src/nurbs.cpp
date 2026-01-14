@@ -413,6 +413,24 @@ void Curve::reverse()
   resetCache();
 }
 
+// PointVector Curve::polyline(double flatness) const
+// {
+//   auto checkError = [e = flatness * flatness](const auto& p0, const auto& p1, const auto& p2) {
+//     Vector u = p2 - p0, v = p1 - p0;
+//     double t = u.dot(v) / u.squaredNorm();
+//     return e >= (t < 0 ? v.squaredNorm()                 //
+//                        : t > 1 ? (p1 - p2).squaredNorm() //
+//                                : (p0 + t * u - p1).squaredNorm());
+//   };
+
+//   PointVector polyline{valueAt(0.0)};
+//   for (double t{}, dt{}; t + _epsilon < 1.0; polyline.emplace_back(valueAt(t += dt)))
+//     for (dt = std::min(1.0 - t, std::sqrt(6 * flatness / std::fabs(curvatureAt(t))) / derivativeAt(t).norm());
+//          !checkError(polyline.back(), valueAt(t + dt / 2), valueAt(t + dt));)
+//       dt /= 2;
+//   return polyline;
+// }
+
 PointVector Curve::polyline(double flatness) const
 {
   if (!cached_polyline_)

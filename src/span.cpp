@@ -1,5 +1,12 @@
 #include "NURBS/span.h"
 
+#include <numeric>
+
+#include <Eigen/Dense>
+#include <unsupported/Eigen/FFT>
+#include <unsupported/Eigen/MatrixFunctions>
+#include <unsupported/Eigen/Polynomials>
+
 using namespace NURBS;
 
 ///// Curve::Span
@@ -106,9 +113,9 @@ PointVector Span::polyline(double flatness) const
 
     typedef std::pair<Eigen::MatrixXd, Eigen::RowVectorXd> Subcurve;
 
-    const Eigen::RowVectorXd s0 = _powSeries(0.0, p_);
-    const Eigen::RowVectorXd s05 = _powSeries(0.5, p_);
-    const Eigen::RowVectorXd s1 = _powSeries(1.0, p_);
+    Eigen::MatrixXd splits{p_ + 1, p_ + 1};
+    for (int i = 0; i <= p_; i++)
+      splits.row(i) = _powSeries((double)i / p_, p_);
 
     std::vector<Subcurve> subcurves;
     subcurves.emplace_back(cached_vbf_, cached_wbf_);
@@ -129,19 +136,32 @@ PointVector Span::polyline(double flatness) const
       Subcurve sub(std::move(subcurves.back()));
       subcurves.pop_back();
 
-      const Point p1 = s0 * sub.first;
-      const Point p2 = s1 * sub.first;
-      const Point pm = s05 * sub.first;
-      const Point u = p2 - p1;
+      const Point p1 = splits.row(0) * sub.first;
+      const Point p2 = splits.row(p_) * sub.first;
+      Vector u = p2 - p1;
 
-      Vector v = pm - p1;
-      double t = u.dot(v) / u.squaredNorm();
+      double max_dev = 0.0;
 
-      double norm = (p1 + t * u - pm).squaredNorm();
-
-      if (coeff * norm <= flatness)
+      for (Eigen::Index i = 0; i < splits.rows(); ++i)
       {
-        cached_polyline_->emplace_back(s0 * sub.first);
+        const Point q = splits.row(i) * sub.first;
+        const Vector v = q - p1;
+        const double t = u.dot(v) / u.squaredNorm();
+
+        double d;
+        if (t < 0.0)
+          d = v.squaredNorm();
+        else if (t > 1.0)
+          d = (q - p2).squaredNorm();
+        else
+          d = (t * u - v).squaredNorm();
+
+        max_dev = std::max(max_dev, d);
+      }
+
+      if (coeff * max_dev <= flatness)
+      {
+        cached_polyline_->emplace_back(p1);
       }
       else
       {
