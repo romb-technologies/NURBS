@@ -1,12 +1,5 @@
 #include "NURBS/span.h"
 
-#include <numeric>
-
-#include <Eigen/Dense>
-#include <unsupported/Eigen/FFT>
-#include <unsupported/Eigen/MatrixFunctions>
-#include <unsupported/Eigen/Polynomials>
-
 using namespace NURBS;
 
 ///// Curve::Span
@@ -111,7 +104,7 @@ PointVector Span::polyline(double flatness) const
   {
     cached_polyline_ = PointVector();
 
-    typedef std::pair<Eigen::MatrixXd, Eigen::RowVectorXd> Subcurve;
+    using Subcurve = std::pair<Eigen::MatrixXd, Eigen::RowVectorXd>;
 
     Eigen::MatrixXd splits{p_ + 1, p_ + 1};
     for (int i = 0; i <= p_; i++)
