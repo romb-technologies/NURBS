@@ -2,6 +2,25 @@
 
 using namespace NURBS;
 
+auto _splittingCoeffs(unsigned p)
+{
+  Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
+  Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
+  zL.diagonal() = _powSeries(0.5, p);
+  zR(0, 0) = 1;
+  for (int i = 1; i < p + 1; i++)
+  {
+    zR.col(i) = zR.col(i - 1);
+    zR.col(i).tail(p) += zR.col(i - 1).head(p);
+  }
+  for (int i = 0; i < p + 1; i++)
+  {
+    zR.diagonal(i) *= _pow(0.5, i);
+    zR.row(i) *= _pow(0.5, i);
+  }
+  return std::make_pair(zL, zR);
+}
+
 ///// Curve::Span
 
 Span::Span(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p) : p_(p)
@@ -79,25 +98,6 @@ void Span::updateControlPoints(Eigen::Ref<Eigen::MatrixX3d> wpoints)
   cached_wbf_ = basis_function_ * wpoints.col(2);
 }
 
-auto splittingCoeffs(unsigned p)
-{
-  Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
-  Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
-  zL.diagonal() = _powSeries(0.5, p);
-  zR(0, 0) = 1;
-  for (int i = 1; i < p + 1; i++)
-  {
-    zR.col(i) = zR.col(i - 1);
-    zR.col(i).tail(p) += zR.col(i - 1).head(p);
-  }
-  for (int i = 0; i < p + 1; i++)
-  {
-    zR.diagonal(i) *= _pow(0.5, i);
-    zR.row(i) *= _pow(0.5, i);
-  }
-  return std::make_pair(zL, zR);
-}
-
 PointVector Span::polyline(double flatness) const
 {
   if (!cached_polyline_)
@@ -114,7 +114,7 @@ PointVector Span::polyline(double flatness) const
     subcurves.emplace_back(cached_vbf_, cached_wbf_);
 
     flatness *= flatness;
-    const auto [sL, sR] = splittingCoeffs(p_);
+    const auto [sL, sR] = _splittingCoeffs(p_);
 
     double coeff{1};
     if (p_ < 10)
@@ -387,31 +387,8 @@ PointVector Span::intersections(const Span& other) const
 
   std::vector<SplitPair_> subcurve_pairs;
 
-  // Splitting matrices based on the curves' degrees
-  auto splittingCoeffs = [](unsigned p) {
-    Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
-    Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
-
-    zL.diagonal() = _powSeries(0.5, p);
-
-    zR(0, 0) = 1;
-    for (unsigned i = 1; i < p + 1; i++)
-    {
-      zR.col(i) = zR.col(i - 1);
-      zR.col(i).tail(p) += zR.col(i - 1).head(p);
-    }
-
-    for (unsigned i = 0; i < p + 1; i++)
-    {
-      zR.diagonal(i) *= _pow(0.5, i);
-      zR.row(i) *= _pow(0.5, i);
-    }
-
-    return std::make_pair(zL, zR);
-  };
-
-  auto [zL_a, zR_a] = splittingCoeffs(p_);
-  auto [zL_b, zR_b] = splittingCoeffs(other.p_);
+  auto [zL_a, zR_a] = _splittingCoeffs(p_);
+  auto [zL_b, zR_b] = _splittingCoeffs(other.p_);
 
   // Self-intersections
   if (this == &other)
