@@ -300,9 +300,10 @@ PointVector Span::intersections(const Span& other) const
   struct SplitPair_
   {
     SplitPair_(Eigen::MatrixXd vbf_a, Eigen::RowVectorXd wbf_a, Eigen::MatrixXd vbf_b, Eigen::RowVectorXd wbf_b)
-        : vbf_a(vbf_a), wbf_a(wbf_a), vbf_b(vbf_b), wbf_b(wbf_b)
+        : vbf_a(std::move(vbf_a)), wbf_a(std::move(wbf_a)), vbf_b(std::move(vbf_b)), wbf_b(std::move(wbf_b))
     {
     }
+
     Eigen::MatrixXd vbf_a, vbf_b;
     Eigen::RowVectorXd wbf_a, wbf_b;
   };
@@ -313,18 +314,22 @@ PointVector Span::intersections(const Span& other) const
   auto splittingCoeffs = [](unsigned p) {
     Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
     Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
+
     zL.diagonal() = _powSeries(0.5, p);
+
     zR(0, 0) = 1;
-    for (int i = 1; i < p + 1; i++)
+    for (unsigned i = 1; i < p + 1; i++)
     {
       zR.col(i) = zR.col(i - 1);
       zR.col(i).tail(p) += zR.col(i - 1).head(p);
     }
-    for (int i = 0; i < p + 1; i++)
+
+    for (unsigned i = 0; i < p + 1; i++)
     {
       zR.diagonal(i) *= _pow(0.5, i);
       zR.row(i) *= _pow(0.5, i);
     }
+
     return std::make_pair(zL, zR);
   };
 
@@ -334,67 +339,79 @@ PointVector Span::intersections(const Span& other) const
   // Self-intersections
   if (this == &other)
   {
-    subcurve_pairs.emplace_back(zL_a * cachedVBF(), zL_a * cachedWBF().transpose(), //
-                                zR_a * cachedVBF(), zR_a * cachedWBF().transpose());
+    subcurve_pairs.emplace_back(zL_a * cachedVBF(), zL_a * cachedWBF().transpose(), zR_a * cachedVBF(),
+                                zR_a * cachedWBF().transpose());
   }
   else
+  {
     subcurve_pairs.emplace_back(cachedVBF(), cachedWBF(), other.cachedVBF(), other.cachedWBF());
+  }
 
-  auto cross = [](Vector u, Vector v) { return u.x() * v.y() - u.y() * v.x(); };
+  auto cross = [](const Vector& u, const Vector& v) { return u.x() * v.y() - u.y() * v.x(); };
 
-  auto addIntersection = [&intersections, &cross](Point a1, Point a2, Point b1, Point b2) {
+  auto addIntersection = [&](const Point& a1, const Point& a2, const Point& b1, const Point& b2) {
     // Intersection of two line segments (Victor Lecomte - Handbook of geometry for competitive programmers)
-    double oa = cross(b2 - b1, a1 - b1);
-    double ob = cross(b2 - b1, a2 - b1);
-    double oc = cross(a2 - a1, b1 - a1);
-    double od = cross(a2 - a1, b2 - a1);
+    const double oa = cross(b2 - b1, a1 - b1);
+    const double ob = cross(b2 - b1, a2 - b1);
+    const double oc = cross(a2 - a1, b1 - a1);
+    const double od = cross(a2 - a1, b2 - a1);
 
     // If intersection exists, insert it into solution vector
     if (oa * ob < 0 && oc * od < 0)
+    {
       intersections.emplace_back((a1 * ob - a2 * oa) / (ob - oa));
+    }
   };
 
   // Cached basis function inverse for bounding box checks
-  Eigen::MatrixXd inv_a = basisFunction().inverse();
-  Eigen::MatrixXd inv_b = other.basisFunction().inverse();
+  const Eigen::MatrixXd inv_a = basisFunction().inverse();
+  const Eigen::MatrixXd inv_b = other.basisFunction().inverse();
 
-  auto maxSquareDev = [](Eigen::MatrixXd vbf, Eigen::RowVectorXd wbf, Eigen::RowVectorXd& pw0,
-                         Eigen::RowVectorXd& pw1) {
+  auto maxSquareDev = [](const Eigen::MatrixXd& vbf, const Eigen::RowVectorXd& wbf, const Eigen::RowVectorXd& pw0,
+                         const Eigen::RowVectorXd& pw1) {
     const Point p1 = (pw0 * vbf) / pw0.dot(wbf);
     const Point p2 = (pw1 * vbf) / pw1.dot(wbf);
     const Vector u = p2 - p1;
+    const double u_squared_norm = u.squaredNorm();
+
     double max_dev = 0.0;
-    int p = pw0.cols() - 1;
+    const int p = pw0.cols() - 1;
+
     for (int i = 1; i < p; i++)
     {
-      auto pow_s = _powSeries((double)i / p, p);
-      Point q = (pow_s * vbf) / pow_s.dot(wbf);
-      Vector v = q - p1;
-      double t = u.dot(v) / u.squaredNorm();
+      const auto pow_s = _powSeries(static_cast<double>(i) / p, p);
+      const Point q = (pow_s * vbf) / pow_s.dot(wbf);
+      const Vector v = q - p1;
+      const double t = u.dot(v) / u_squared_norm;
       max_dev = std::max(max_dev, (t * u - v).squaredNorm());
     }
+
     return max_dev;
   };
 
-  Eigen::RowVectorXd pow_a0 = _powSeries(0.0, p_), pow_a1 = _powSeries(1.0, p_);
-  Eigen::RowVectorXd pow_b0 = _powSeries(0.0, other.p_), pow_b1 = _powSeries(1.0, other.p_);
+  const Eigen::RowVectorXd pow_a0 = _powSeries(0.0, p_);
+  const Eigen::RowVectorXd pow_a1 = _powSeries(1.0, p_);
+  const Eigen::RowVectorXd pow_b0 = _powSeries(0.0, other.p_);
+  const Eigen::RowVectorXd pow_b1 = _powSeries(1.0, other.p_);
 
   while (!subcurve_pairs.empty() && intersections.size() <= max_intersections)
   {
     SplitPair_ pair = std::move(subcurve_pairs.back());
     subcurve_pairs.pop_back();
 
-    BoundingBox bbox1 = fastBoundingBox(pair.vbf_a, pair.wbf_a, inv_a);
-    BoundingBox bbox2 = fastBoundingBox(pair.vbf_b, pair.wbf_b, inv_b);
+    const BoundingBox bbox1 = fastBoundingBox(pair.vbf_a, pair.wbf_a, inv_a);
+    const BoundingBox bbox2 = fastBoundingBox(pair.vbf_b, pair.wbf_b, inv_b);
 
     if (!bbox1.intersects(bbox2))
+    {
       continue;
+    }
 
     const bool finish_a =
-        (bbox1.diagonal().norm() < _epsilon) || (maxSquareDev(pair.vbf_a, pair.wbf_a, pow_a0, pow_a1) < _epsilon);
+        (maxSquareDev(pair.vbf_a, pair.wbf_a, pow_a0, pow_a1) < _epsilon || bbox1.diagonal().norm() < _epsilon);
 
     const bool finish_b =
-        (bbox2.diagonal().norm() < _epsilon) || (maxSquareDev(pair.vbf_b, pair.wbf_b, pow_b0, pow_b1) < _epsilon);
+        (maxSquareDev(pair.vbf_b, pair.wbf_b, pow_b0, pow_b1) < _epsilon || bbox2.diagonal().norm() < _epsilon);
 
     if (finish_a && finish_b)
     {
@@ -406,10 +423,10 @@ PointVector Span::intersections(const Span& other) const
       continue;
     }
 
-    SplitPair_ pair_a(zL_a * pair.vbf_a, zL_a * pair.wbf_a.transpose(), zR_a * pair.vbf_a,
-                      zR_a * pair.wbf_a.transpose());
-    SplitPair_ pair_b(zL_b * pair.vbf_b, zL_b * pair.wbf_b.transpose(), zR_b * pair.vbf_b,
-                      zR_b * pair.wbf_b.transpose());
+    const SplitPair_ pair_a(zL_a * pair.vbf_a, zL_a * pair.wbf_a.transpose(), zR_a * pair.vbf_a,
+                            zR_a * pair.wbf_a.transpose());
+    const SplitPair_ pair_b(zL_b * pair.vbf_b, zL_b * pair.wbf_b.transpose(), zR_b * pair.vbf_b,
+                            zR_b * pair.wbf_b.transpose());
 
     if (finish_a)
     {
