@@ -79,15 +79,92 @@ void Span::updateControlPoints(Eigen::Ref<Eigen::MatrixX3d> wpoints)
   cached_wbf_ = basis_function_ * wpoints.col(2);
 }
 
-PointVector Span::polyline() const
+auto splittingCoeffs(unsigned p)
+{
+  Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
+  Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
+  zL.diagonal() = _powSeries(0.5, p);
+  zR(0, 0) = 1;
+  for (int i = 1; i < p + 1; i++)
+  {
+    zR.col(i) = zR.col(i - 1);
+    zR.col(i).tail(p) += zR.col(i - 1).head(p);
+  }
+  for (int i = 0; i < p + 1; i++)
+  {
+    zR.diagonal(i) *= _pow(0.5, i);
+    zR.row(i) *= _pow(0.5, i);
+  }
+  return std::make_pair(zL, zR);
+}
+
+PointVector Span::polyline(double flatness) const
 {
   if (!cached_polyline_)
   {
     cached_polyline_ = PointVector();
-    for (double u = 0.0; u < 1.0 + 0.01; u += 0.02)
+
+    using Subcurve = std::pair<Eigen::MatrixXd, Eigen::RowVectorXd>;
+
+    Eigen::MatrixXd splits{p_ + 1, p_ + 1};
+    for (int i = 0; i <= p_; i++)
+      splits.row(i) = _powSeries((double)i / p_, p_);
+
+    std::vector<Subcurve> subcurves;
+    subcurves.emplace_back(cached_vbf_, cached_wbf_);
+
+    flatness *= flatness;
+    const auto [sL, sR] = splittingCoeffs(p_);
+
+    double coeff{1};
+    if (p_ < 10)
     {
-      cached_polyline_->emplace_back(valueAt(u));
+      // for N_ == 10, coeff is 0.9922, so we ignore it for higher orders
+      coeff -= std::exp2(2. - p_);
+      coeff *= coeff;
     }
+
+    while (!subcurves.empty())
+    {
+      Subcurve sub(std::move(subcurves.back()));
+      subcurves.pop_back();
+
+      const Point p1 = (splits.row(0) * sub.first) / splits.row(0).dot(sub.second);
+      const Point p2 = (splits.row(p_) * sub.first) / splits.row(p_).dot(sub.second);
+
+      Vector u = p2 - p1;
+
+      double max_dev = 0.0;
+
+      for (int i = 0; i < splits.rows(); ++i)
+      {
+        const Point q = (splits.row(i) * sub.first) / splits.row(i).dot(sub.second);
+        const Vector v = q - p1;
+        const double t = u.dot(v) / u.squaredNorm();
+
+        double d;
+        if (t < 0.0)
+          d = v.squaredNorm();
+        else if (t > 1.0)
+          d = (q - p2).squaredNorm();
+        else
+          d = (t * u - v).squaredNorm();
+
+        max_dev = std::max(max_dev, d);
+      }
+
+      if (coeff * max_dev <= flatness)
+      {
+        cached_polyline_->emplace_back(p1);
+      }
+      else
+      {
+        subcurves.emplace_back(sR * sub.first, sR * sub.second.transpose());
+        subcurves.emplace_back(sL * sub.first, sL * sub.second.transpose());
+      }
+    }
+
+    cached_polyline_->emplace_back(valueAt(1.0));
   }
   return *cached_polyline_;
 }

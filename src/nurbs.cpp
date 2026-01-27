@@ -420,7 +420,7 @@ PointVector Curve::polyline(double flatness) const
     cached_polyline_ = PointVector();
     for (int i = 0; i < spans_.size(); i++)
     {
-      PointVector poly = spans_[i].polyline();
+      PointVector poly = spans_[i].polyline(flatness);
       cached_polyline_->insert(cached_polyline_->end(), poly.begin(), poly.end());
     }
   }
