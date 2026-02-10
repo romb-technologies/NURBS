@@ -47,4 +47,4 @@ set_target_properties(nurbs PROPERTIES PUBLIC_HEADER "${NURBS_INC}")
 install(TARGETS nurbs
   EXPORT nurbs-export DESTINATION "lib"
   PUBLIC_HEADER DESTINATION "include/NURBS")
-install(EXPORT nurbs-export DESTINATION "lib/cmake/nurbs" FILE nurbsConfig.cmake)
+install(EXPORT nurbs-export DESTINATION "lib/cmake/NURBS" FILE NURBSConfig.cmake)

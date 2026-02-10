@@ -5,6 +5,7 @@
 
 #include "NURBS/declarations.h"
 #include "NURBS/nurbs.h"
+#include <memory>
 
 class qCurve : public QGraphicsObject, public NURBS::Curve
 {

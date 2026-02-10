@@ -3,7 +3,7 @@
 
 #include <limits>
 #include <map>
-#include <memory>
+#include <optional>
 #include <numeric>
 
 #include "NURBS/declarations.h"

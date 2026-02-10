@@ -1,7 +1,7 @@
 #ifndef SPAN_H
 #define SPAN_H
 
-#include <memory>
+#include <optional>
 
 #include "declarations.h"
 #include "utils.h"
