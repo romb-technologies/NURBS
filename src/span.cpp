@@ -120,7 +120,7 @@ PointVector Span::polyline(double flatness) const
     if (p_ < 10)
     {
       // for N_ == 10, coeff is 0.9922, so we ignore it for higher orders
-      coeff -= std::exp2(2. - p_);
+      coeff -= std::exp2(1. - p_);
       coeff *= coeff;
     }
 
