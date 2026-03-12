@@ -2,24 +2,24 @@
 
 using namespace NURBS;
 
-auto _splittingCoeffs(unsigned p)
+auto _splittingCoeffs(unsigned p, double t)
 {
   Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
   Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
-  zL.diagonal() = _powSeries(0.5, p);
-  zR(0, 0) = 1;
-  for (int i = 1; i < p + 1; i++)
-  {
-    zR.col(i) = zR.col(i - 1);
-    zR.col(i).tail(p) += zR.col(i - 1).head(p);
-  }
+  zL.diagonal() = _powSeries(t, p);
+
   for (int i = 0; i < p + 1; i++)
   {
-    zR.diagonal(i) *= _pow(0.5, i);
-    zR.row(i) *= _pow(0.5, i);
+    for (int j = i; j < p + 1; j++)
+    {
+      zR(i, j) = _binomial(j, i) * _pow(t, j - i) * _pow(1 - t, i);
+    }
   }
+
   return std::make_pair(zL, zR);
 }
+
+auto _splittingCoeffs(unsigned p) { return _splittingCoeffs(p, 0.5); }
 
 ///// Curve::Span
 
@@ -393,8 +393,35 @@ PointVector Span::intersections(const Span& other) const
   // Self-intersections
   if (this == &other)
   {
-    subcurve_pairs.emplace_back(zL_a * cachedVBF(), zL_a * cachedWBF().transpose(), zR_a * cachedVBF(),
-                                zR_a * cachedWBF().transpose());
+    using Subcurve = std::pair<Eigen::MatrixXd, Eigen::RowVectorXd>;
+    std::vector<Subcurve> splits;
+
+    Eigen::MatrixXd vbf = cached_vbf_;
+    Eigen::RowVectorXd wbf = cached_wbf_;
+
+    double e_prev = 0.0;
+    auto extr = extrema();
+    std::sort(extr.begin(), extr.end());
+    for (double e : extr)
+    {
+      // determine position starting from previous split
+      double e_split = (e - e_prev) / (1.0 - e_prev);
+
+      auto [zL, zR] = _splittingCoeffs(p_, e_split);
+      splits.emplace_back(zL * vbf, zL * wbf.transpose());
+      vbf = zR * vbf;
+      wbf = zR * wbf.transpose();
+      e_prev = e;
+    }
+    splits.emplace_back(vbf, wbf);
+
+    for (int i = 0; i < splits.size(); i++)
+    {
+      for (int j = i + 1; j < splits.size(); j++)
+      {
+        subcurve_pairs.emplace_back(splits[i].first, splits[i].second, splits[j].first, splits[j].second);
+      }
+    }
   }
   else
   {
@@ -411,7 +438,7 @@ PointVector Span::intersections(const Span& other) const
     const double od = cross(a2 - a1, b2 - a1);
 
     // If intersection exists, insert it into solution vector
-    if (oa * ob < 0 && oc * od < 0)
+    if (oa * ob < -_epsilon && oc * od < -_epsilon)
     {
       intersections.emplace_back((a1 * ob - a2 * oa) / (ob - oa));
     }

@@ -73,6 +73,8 @@ inline Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& poly1, const 
   return result;
 }
 
+inline int _binomial(int n, int k) { return k == 0 || k == n ? 1 : _binomial(n - 1, k - 1) + _binomial(n - 1, k); }
+
 } // namespace NURBS
 
 #endif
