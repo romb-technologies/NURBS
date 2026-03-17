@@ -2,7 +2,7 @@
 
 using namespace NURBS;
 
-auto _splittingCoeffs(unsigned p, double t)
+auto _splittingCoeffs(unsigned p, double t = 0.5)
 {
   Eigen::MatrixXd zL = Eigen::MatrixXd::Zero(p + 1, p + 1);
   Eigen::MatrixXd zR = Eigen::MatrixXd::Zero(p + 1, p + 1);
@@ -18,8 +18,6 @@ auto _splittingCoeffs(unsigned p, double t)
 
   return std::make_pair(zL, zR);
 }
-
-auto _splittingCoeffs(unsigned p) { return _splittingCoeffs(p, 0.5); }
 
 ///// Curve::Span
 
@@ -391,7 +389,7 @@ PointVector Span::intersections(const Span& other) const
   auto [zL_b, zR_b] = _splittingCoeffs(other.p_);
 
   // Self-intersections
-  if (this == &other)
+  if (cachedVBF().isApprox(other.cachedVBF()) && cachedWBF().isApprox(other.cachedWBF()))
   {
     using Subcurve = std::pair<Eigen::MatrixXd, Eigen::RowVectorXd>;
     std::vector<Subcurve> splits;
