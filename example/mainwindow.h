@@ -35,6 +35,8 @@ private slots:
 
   void on_actionLower_order_triggered();
 
+  void on_actionInsert_knot_triggered();
+
 private:
   Ui::MainWindow* ui;
   CustomScene* scene;

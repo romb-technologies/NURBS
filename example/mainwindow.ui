@@ -145,7 +145,7 @@
      <x>0</x>
      <y>0</y>
      <width>1100</width>
-     <height>22</height>
+     <height>19</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuView">
@@ -305,9 +305,6 @@
    </property>
   </action>
   <action name="actionInsert_knot">
-   <property name="checkable">
-    <bool>true</bool>
-   </property>
    <property name="text">
     <string>Insert knot</string>
    </property>

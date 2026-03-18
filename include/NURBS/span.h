@@ -1,7 +1,7 @@
 #ifndef SPAN_H
 #define SPAN_H
 
-#include <memory>
+#include <optional>
 
 #include "declarations.h"
 #include "utils.h"
@@ -25,7 +25,7 @@ class Span
 {
 public:
   ~Span() = default;
-  Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, uint p);
+  Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, unsigned p);
 
   Span(Eigen::Ref<const Eigen::MatrixXd> basis_func, Eigen::Ref<const Eigen::MatrixXd> vbf,
        Eigen::Ref<const Eigen::RowVectorXd> wbf, double start, double end);
@@ -80,14 +80,15 @@ public:
    * \param u Span parameter (ranges from 0.0 to 1.0, not start_t to end_t)
    * \return nth span derivative at u
    */
-  Point derivativeAt(int n, double u) const;
+  Vector derivativeAt(int n, double u) const;
 
   /*!
    * \brief Get value of a derivative for a given t
    * \param t Curve parameter
    * \return Curve derivative at t
    */
-  Point derivativeAt(double u) const;
+  Vector derivativeAt(double u) const;
+
   /// Reset all privately cached data
   void resetCache();
   /*!
@@ -137,7 +138,7 @@ private:
    * \brief Span order
    * \warning Must always match curve order
    */
-  const uint p_;
+  const unsigned p_;
   double start_, end_;
 
   /*!

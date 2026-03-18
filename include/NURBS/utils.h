@@ -9,6 +9,7 @@ namespace NURBS
 struct _PolynomialRoots : public std::vector<double>
 {
   explicit _PolynomialRoots(unsigned reserve) { std::vector<double>::reserve(reserve); }
+  explicit _PolynomialRoots() {}
   void clear() {}          // no-op so that PolynomialSolver::RealRoots() doesn't clear it
   void push_back(double t) // only allow valid roots
   {
@@ -23,11 +24,8 @@ inline double _pow(double base, unsigned exp)
 {
   double result = exp & 1 ? base : 1;
   while (exp >>= 1)
-  {
-    base *= base;
-    if (exp & 1)
+    if (base *= base, exp & 1)
       result *= base;
-  }
   return result;
 }
 
@@ -43,15 +41,14 @@ inline Eigen::RowVectorXd _powSeries(double base, unsigned exp)
 inline Eigen::RowVectorXd _powSeriesDerivative(double base, unsigned exp, unsigned drv)
 {
   Eigen::RowVectorXd power_series = Eigen::RowVectorXd::Ones(exp + 1);
+
   for (uint i = 0; i < drv; i++)
-  {
     for (uint j = 0; j <= exp; j++)
-    {
       power_series(j) *= j - i;
-    }
-  }
+
   for (unsigned k = drv; k <= exp; k++)
     power_series(k) *= _pow(base, k - drv);
+
   return power_series;
 }
 
@@ -69,8 +66,15 @@ inline Eigen::VectorXd _multiplyPolynomials(const Eigen::VectorXd& poly1, const 
   for (int i = 0; i < poly1.size(); i++)
     for (int j = 0; j < poly2.size(); j++)
       result(i + j) += poly1(i) * poly2(j);
-
   return result;
+}
+
+inline Eigen::MatrixX2d _pointVectorToMatrix(PointVector pv)
+{
+  Eigen::MatrixX2d out(pv.size(), 2);
+  for (unsigned k = 0; k < pv.size(); k++)
+    out.row(k) = pv[k];
+  return out;
 }
 
 inline int _binomial(int n, int k) { return k == 0 || k == n ? 1 : _binomial(n - 1, k - 1) + _binomial(n - 1, k); }

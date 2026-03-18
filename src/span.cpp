@@ -39,52 +39,45 @@ Eigen::RowVectorXd Span::cachedWBF() const { return cached_wbf_; }
 
 Eigen::MatrixXd Span::cachedVBF() const { return cached_vbf_; }
 
-bool Span::contains(double t) const { return std::fabs(start_ - end_) > _epsilon && t >= start() && t < end(); }
+bool Span::contains(double t) const { return end() - start() > _epsilon && t >= start() && t < end(); }
 
 void Span::update(Eigen::Ref<Eigen::ArrayXd> knots, Eigen::Ref<Eigen::MatrixX3d> wpoints)
 {
   start_ = knots(p_ - 1);
   end_ = knots(p_);
 
+  if (end() - start() <= _epsilon) // start_t_ == end_t_
+  {
+    basis_function_ = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
+    updateControlPoints(wpoints);
+    return;
+  }
+
   // generate basis function
-  Eigen::MatrixXd m(1, 1);
-  m << 1;
+  basis_function_.resize(1, 1);
+  basis_function_ << 1;
 
-  if (std::fabs(start() - end()) > _epsilon) // start_t_ != end_t_
+  for (int k = 2, i = p_ - 1; k <= p_ + 1; k++)
   {
-    int i = p_ - 1;
-    for (int k = 2; k <= p_ + 1; k++)
-    {
-      Eigen::MatrixXd m1(k, k - 1), m2 = Eigen::MatrixXd::Zero(k - 1, k), m3(k, k - 1),
-                                    m4 = Eigen::MatrixXd::Zero(k - 1, k);
 
-      m1 << m, Eigen::MatrixXd::Zero(1, k - 1);
-      m3 << Eigen::MatrixXd::Zero(1, k - 1), m;
+    Eigen::MatrixXd m1(k, k - 1), m2(k - 1, k), m3(k, k - 1), m4(k - 1, k);
+    m1 << basis_function_, Eigen::MatrixXd::Zero(1, k - 1);
+    m3 << Eigen::MatrixXd::Zero(1, k - 1), basis_function_;
+    m2.setZero(), m4.setZero();
 
-      Eigen::ArrayXd d0 = Eigen::ArrayXd::Constant(k - 1, start()),
-                     d1 = Eigen::ArrayXd::Constant(k - 1, end() - start()), ddwn = Eigen::ArrayXd::Zero(k - 1);
+    Eigen::ArrayXd d0(k - 1), d1(k - 1), ddwn(k - 1);
+    d0.setConstant(start()), d1.setConstant(end() - start());
 
-      ddwn = knots.segment(i + 1, k - 1) - knots.segment(i - k + 2, k - 1);
-      d0 -= knots.segment(i - k + 2, k - 1);
+    ddwn = knots.segment(i + 1, k - 1) - knots.segment(i - k + 2, k - 1);
+    d0 -= knots.segment(i - k + 2, k - 1);
 
-      d0 /= ddwn;
-      d1 /= ddwn;
-
-      m2.diagonal() = 1 - d0;
-      m2.diagonal(1) = d0;
-
-      m4.diagonal() = -d1;
-      m4.diagonal(1) = d1;
-
-      m = (m1 * m2) + (m3 * m4);
-    }
+    d0 /= ddwn, d1 /= ddwn;
+    m2.diagonal() = 1 - d0;
+    m2.diagonal(1) = d0;
+    m4.diagonal() = -d1;
+    m4.diagonal(1) = d1;
+    basis_function_ = (m1 * m2) + (m3 * m4);
   }
-  else
-  {
-    m = Eigen::MatrixXd::Zero(p_ + 1, p_ + 1);
-  }
-
-  basis_function_ = m;
 
   updateControlPoints(wpoints);
 }
@@ -180,50 +173,47 @@ void Span::resetCache()
   cached_chebyshev_coeffs_.reset();
 }
 
-Point Span::derivativeAt(int n, double u) const
+Vector Span::derivativeAt(int n, double u) const
 {
-  // temporary solution
+  if (p_ < n)
+    return Vector(0, 0);
 
-  Eigen::RowVectorXd pw = _powSeries(u, p_);
-  Eigen::RowVectorXd pwd1 = _powSeriesDerivative(u, p_, 1);
-  Eigen::RowVectorXd pwd2 = _powSeriesDerivative(u, p_, 2);
-  Eigen::RowVectorXd pwd3 = _powSeriesDerivative(u, p_, 3);
+  // Derivatives of t power series
+  std::vector<Eigen::RowVectorXd> dt;
+  for (int i = 0; i <= n; i++)
+    dt.emplace_back(_powSeriesDerivative(u, p_, i));
 
-  Eigen::MatrixX2d r = cached_vbf_;
-  Eigen::VectorXd s = cached_wbf_;
+  const auto& V = cached_vbf_;
+  const auto& W = cached_wbf_;
 
-  Eigen::RowVector2d ru = pw * r;
-  double su = pw.dot(s);
+  // g = 1/W
+  std::vector<double> dg;
+  dg.reserve(n + 1);
+  dg.emplace_back(1 / dt[0].dot(W));
 
-  // derivatives of 1/S(u) in point t
-  double d1su = -pwd1.dot(s) / _pow(su, 2);
-
-  double d2su = -pwd2.dot(s) / _pow(su, 2) + 2 * _pow(pwd1.dot(s), 2) / _pow(su, 3);
-
-  double d3su = -(pwd3.dot(s) / _pow(su, 2)) + 4 * (pwd1.dot(s) * pwd2.dot(s) / _pow(su, 3)) -
-                6 * (_pow(pwd1.dot(s), 3) / _pow(su, 4));
-
-  switch (n)
+  Vector derivative{0, 0};
+  derivative += (dt[n] * V) * dg[0];
+  for (int i = 1; i <= n; i++)
   {
-  case 1:
-    return ru * d1su + (pwd1 * r) / su;
-  case 2:
-    return ru * d2su + 2 * (pwd1 * r) * d1su + (pwd2 * r) / su;
-  case 3:
-    return ru * d3su + 3 * (pwd1 * r) * d2su + 3 * (pwd2 * r) * d1su + (pwd3 * r) / su;
-  default:
-    return valueAt(u);
+    double dg_temp = 0.0;
+    for (int j = 1; j <= i; j++)
+      dg_temp += _binomial(i, j) * dt[j].dot(W) * dg[i - j]; // Generalized derivative of 1/W
+    dg.emplace_back(-dg[0] * dg_temp);
+
+    derivative += _binomial(n, i) * (dt[n - i] * V) * dg[i]; // Leibniz product rule
   }
+
+  return derivative;
 }
 
-Point Span::derivativeAt(double u) const { return derivativeAt(1, u); }
+Vector Span::derivativeAt(double u) const { return derivativeAt(1, u); }
 
 double Span::length(double t) const
 {
-  if (t < 0.0 || t > 1.0)
+  if (t > 1.0 || t < 0.0)
     throw std::logic_error{"Length can only be calculated for t within [0.0, 1.0] range."};
 
-  auto evaluate_chebyshev = [](double t, const Eigen::VectorXd& coeff) {
+  auto evaluateChebyshev = [](double t, const Eigen::VectorXd& coeff) {
     t = 2 * t - 1;
     double tn{t}, tn_1{1}, res{coeff(0) + coeff(1) * t};
     for (unsigned k = 2; k < coeff.size(); k++)
@@ -239,6 +229,7 @@ double Span::length(double t) const
   {
     constexpr unsigned START_LOG_N = 10;
     unsigned log_n = START_LOG_N - 1;
+    // todo: počet s manje točaka (kasnije)
     unsigned n = _exp2(START_LOG_N - 1);
 
     Eigen::VectorXd derivative_cache(2);
@@ -288,11 +279,12 @@ double Span::length(double t) const
     unsigned cut = 0;
     while (std::fabs(chebyshev(cut)) > _epsilon * 1e-2)
       cut++;
+
     cached_chebyshev_coeffs_ = Eigen::VectorXd(cut + 1);
     *cached_chebyshev_coeffs_ << 0, chebyshev.head(cut);
-    (*cached_chebyshev_coeffs_)(0) = -evaluate_chebyshev(0, *cached_chebyshev_coeffs_);
+    (*cached_chebyshev_coeffs_)(0) = -evaluateChebyshev(0, *cached_chebyshev_coeffs_);
   }
-  return evaluate_chebyshev(t, *cached_chebyshev_coeffs_);
+  return evaluateChebyshev(t, *cached_chebyshev_coeffs_);
 }
 
 double Span::length() const { return length(1.0); }
@@ -389,7 +381,7 @@ PointVector Span::intersections(const Span& other) const
   auto [zL_b, zR_b] = _splittingCoeffs(other.p_);
 
   // Self-intersections
-  if (cachedVBF().isApprox(other.cachedVBF()) && cachedWBF().isApprox(other.cachedWBF()))
+  if (p_ == other.p_ && cachedVBF().isApprox(other.cachedVBF()) && cachedWBF().isApprox(other.cachedWBF()))
   {
     using Subcurve = std::pair<Eigen::MatrixXd, Eigen::RowVectorXd>;
     std::vector<Subcurve> splits;

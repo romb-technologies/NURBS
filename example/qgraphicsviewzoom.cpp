@@ -21,6 +21,7 @@ void QGraphicsViewZoom::gentle_zoom(double factor)
     return; // zoom x100 is maximum
   m_view->scale(factor, factor);
   m_view->centerOn(target_scene_pos);
+
   QPointF delta_viewport_pos =
       target_viewport_pos - QPointF(m_view->viewport()->width() / 2.0, m_view->viewport()->height() / 2.0);
   QPointF viewport_center = m_view->mapFromScene(target_scene_pos) - delta_viewport_pos;
@@ -48,16 +49,14 @@ bool QGraphicsViewZoom::eventFilter(QObject* object, QEvent* event)
   else if (event->type() == QEvent::Wheel)
   {
     QWheelEvent* wheel_event = static_cast<QWheelEvent*>(event);
-    if (QApplication::keyboardModifiers() == m_modifiers)
-    {
-      if (wheel_event->orientation() == Qt::Vertical)
+    if (QApplication::keyboardModifiers() == m_modifiers
+            && wheel_event->orientation() == Qt::Vertical)
       {
         double angle = wheel_event->angleDelta().y();
         double factor = qPow(m_zoom_factor_base, angle);
         gentle_zoom(factor);
         return true;
       }
-    }
   }
   Q_UNUSED(object)
   return false;

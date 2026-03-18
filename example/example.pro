@@ -29,6 +29,7 @@ SOURCES += \
     ../src/nurbs.cpp \
     qcustomplot.cpp \
     qgraphicsviewzoom.cpp \
+    qinsertknotdialog.cpp \
     qvectorfield.cpp
 
 HEADERS += \
@@ -42,6 +43,7 @@ HEADERS += \
     ../include/NURBS/declarations.h \
     qcustomplot.h \
     qgraphicsviewzoom.h \
+    qinsertknotdialog.h \
     qvectorfield.h
 
 FORMS += \

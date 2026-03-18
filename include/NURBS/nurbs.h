@@ -3,8 +3,8 @@
 
 #include <limits>
 #include <map>
-#include <memory>
 #include <numeric>
+#include <optional>
 
 #include "NURBS/declarations.h"
 #include "NURBS/span.h"
@@ -80,7 +80,7 @@ public:
    * Curve will always retain its shape
    * \warning Resets cached data
    */
-  void elevateOrder(uint t = 1);
+  void elevateOrder(unsigned t = 1);
 
   /*!
    * \brief Lower the curve order by 1
@@ -342,11 +342,11 @@ public:
   void removeControlPoint(int ix);
 
   /*!
-   * \brief Join this curve with another curve to create a new curve
-   * \param other Reference to second curve
+   * \brief Join the end of this curve to the beginning of another curve to create a new curve
+   * \param other Second curve
    * \return New curve that is a result of joining the two curves
    */
-  Curve join(Curve& other);
+  Curve join(Curve other);
 
   /*!
    * \brief Make this curve continuous with \c source_curve

@@ -23,7 +23,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
 
   cp2 << 180, 110, 175, 160, 60, 48, 164, 165, 124, 134;
 
-  NURBS::Curve curve1(cp1 * 5);
+  NURBS::Curve curve1(cp1 * 5, 2);
   NURBS::Curve curve2(cp2 * 5);
 
   addCurveToScene(curve1);
@@ -40,6 +40,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
         activeCurve->disconnect(ui->knotVector);
         activeCurve->disconnect(ui->weights);
       }
+
       if (qCurve* c = static_cast<CurveListWidgetItem*>(current)->curve; c != activeCurve)
         activeCurve = c;
       else
@@ -190,3 +191,5 @@ void MainWindow::clearInfoDisplay()
 }
 
 MainWindow::~MainWindow() { delete ui; }
+
+
