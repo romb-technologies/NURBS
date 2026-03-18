@@ -347,12 +347,14 @@ void Curve::setControlPoint(unsigned idx, const Point& point)
   weighted_control_points_.row(idx).head(2) = point * weighted_control_points_(idx, 2);
 
   for (int i = std::max<int>(0, idx - p_); i <= idx && i < spans_.size(); i++)
-    spans_[i].updateControlPoints();
+  {
+    spans_[i].updateControlPoints(weighted_control_points_.middleRows(i, p_ + 1));
+  }
 
   resetCache();
 }
 
-std::pair<Point, Point> Curve::endPoints() const { return {controlPoint(0), controlPoint(N_ - 1)}; }
+std::pair<Point, Point> Curve::endPoints() const { return {valueAt(T_(p_)), valueAt(T_(N_))}; }
 
 void Curve::reverse()
 {
@@ -366,7 +368,7 @@ PointVector Curve::polyline(double flatness) const
   {
     for (const auto& span : spans_)
     {
-      auto poly = span.polyline();
+      PointVector poly = span.polyline(flatness);
       cached_polyline_->insert(cached_polyline_->end(), poly.begin(), poly.end());
     }
   }
@@ -390,19 +392,28 @@ Eigen::MatrixX2d Curve::valueAt(const std::vector<double>& t_vector) const
   return out;
 }
 
-BoundingBox Curve::boundingBox() const
+BoundingBox Curve::boundingBox(bool use_roots) const
 {
-  if (!cached_bounding_box_)
+  if (use_roots)
   {
-    auto extremes = valueAt(extrema());
-    extremes.conservativeResize(extremes.rows() + 2, Eigen::NoChange);
-    extremes.row(extremes.rows() - 1) = controlPoint(0);
-    extremes.row(extremes.rows() - 2) = controlPoint(N_ - 1);
+    if (!cached_bounding_box_)
+    {
+      auto extremes = valueAt(extrema());
+      extremes.conservativeResize(extremes.rows() + 2, Eigen::NoChange);
+      extremes.row(extremes.rows() - 1) = endPoints().first;
+      extremes.row(extremes.rows() - 2) = endPoints().second;
 
-    cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
-                                       Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+      cached_bounding_box_ = BoundingBox(Point(extremes.col(0).minCoeff(), extremes.col(1).minCoeff()),
+                                         Point(extremes.col(0).maxCoeff(), extremes.col(1).maxCoeff()));
+    }
+    return *cached_bounding_box_;
   }
-  return *cached_bounding_box_;
+  else
+  {
+    Eigen::MatrixX2d unweighted_pts = weighted_control_points_.leftCols(2).array().colwise() / weights().array();
+    return BoundingBox(Point(unweighted_pts.col(0).minCoeff(), unweighted_pts.col(1).minCoeff()),
+                       Point(unweighted_pts.col(0).maxCoeff(), unweighted_pts.col(1).maxCoeff()));
+  }
 }
 
 const Curve& Curve::derivative() const {}
@@ -458,44 +469,19 @@ std::vector<double> Curve::roots() const
 std::vector<double> Curve::extrema() const
 {
   std::vector<double> extr;
-
-  if (N_ <= 1)
-    return extr;
-
-  Eigen::PolynomialSolver<double, Eigen::Dynamic> poly_solver;
-  for (const auto& span : spans_)
+  if (N_ > 1)
   {
-    // d/du R(u)
-    Eigen::MatrixX2d p1 = Eigen::MatrixXd::Zero(p_ + 1, 2);
-    p1.topRows(p_) =
-        (span.cachedVBF().array().colwise() * _powSeriesDerivative(1, p_, 1).transpose().array()).bottomRows(p_);
-
-    // d/du S(u)
-    Eigen::RowVectorXd pb = Eigen::VectorXd::Zero(p_ + 1);
-    pb.head(p_) = (span.cachedWBF().array() * _powSeriesDerivative(1, p_, 1).array()).tail(p_);
-
-    Eigen::MatrixX2d poly(2 * p_ + 1, 2);
-    poly.col(0) =
-        -_multiplyPolynomials(pb, span.cachedVBF().col(0)) + _multiplyPolynomials(p1.col(0), span.cachedWBF());
-    poly.col(1) =
-        -_multiplyPolynomials(pb, span.cachedVBF().col(1)) + _multiplyPolynomials(p1.col(1), span.cachedWBF());
-
-    auto trimmed_x = _trimZeroes(poly.col(0));
-    auto trimmed_y = _trimZeroes(poly.col(1));
-
-    _PolynomialRoots roots(trimmed_x.size() + trimmed_y.size());
-    if (trimmed_x.size() > 1)
+    for (const auto& span : spans_)
     {
-      poly_solver.compute(trimmed_x);
-      poly_solver.realRoots(roots);
+      std::vector<double> extr_sp = span.extrema();
+      for (auto ex : extr_sp)
+      {
+        extr.emplace_back(ex * (span.end() - span.start()) + span.start());
+      }
     }
-    if (trimmed_y.size() > 1)
-    {
-      poly_solver.compute(trimmed_y);
-      poly_solver.realRoots(roots);
-    }
-    for (int j = 0; j < roots.size(); j++)
-      extr.emplace_back(roots[j] * (span.end() - span.start()) + span.start());
+    std::sort(extr.begin(), extr.end());
+    extr.erase(std::unique(extr.begin(), extr.end(), [](double a, double b) { return std::abs(a - b) < _epsilon; }),
+               extr.end());
   }
 
   return extr;
@@ -580,73 +566,19 @@ double Curve::projectPoint(const Point& point) const
   return min_point.first;
 }
 
-// todo: fix
-PointVector Curve::intersections(const Curve& curve) const
+PointVector Curve::intersections(const Curve& other) const
 {
   PointVector intersections;
-  auto addIntersection = [&intersections](Point new_point) {
-    // check if not already found, and add new point
-    if (std::none_of(intersections.begin(), intersections.end(),
-                     [&new_point](const Point& point) { return (point - new_point).norm() < _epsilon; }))
-      intersections.emplace_back(std::move(new_point));
-  };
+  for (int i = 0; i < spans_.size(); i++)
+    for (int j = 0; j < other.spans_.size(); j++)
 
-  std::vector<std::pair<Curve, Curve>> subcurve_pairs;
-
-  if (this != &curve)
-    subcurve_pairs.emplace_back(*this, *this);
-  else
-  {
-    // for self intersections divide curve into subcurves at extrema
-    auto t = extrema();
-    std::sort(t.begin(), t.end());
-    std::vector<Curve> subcurves;
-    subcurves.emplace_back(*this);
-    for (unsigned k = 0; k < t.size(); k++)
     {
-      Curve new_curve = std::move(subcurves.back());
-      subcurves.pop_back();
-      subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).first);
-      subcurves.emplace_back(new_curve.splitCurve(t[k] - _epsilon / 2).second);
-
-      std::for_each(t.begin() + k + 1, t.end(), [t = t[k]](double& x) { x = (x - t) / (1 - t); });
+      if (this == &other && j < i)
+        continue;
+      PointVector ints = spans_[i].intersections(other.spans_[j]);
+      intersections.insert(intersections.end(), std::make_move_iterator(ints.begin()),
+                           std::make_move_iterator(ints.end()));
     }
-
-    // create all pairs of subcurves
-    for (unsigned k = 0; k < subcurves.size(); k++)
-      for (unsigned i = k + 1; i < subcurves.size(); i++)
-        subcurve_pairs.emplace_back(subcurves[k], subcurves[i]);
-  }
-
-  while (!subcurve_pairs.empty())
-  {
-    auto [cp_a, cp_b] = std::move(subcurve_pairs.back());
-    subcurve_pairs.pop_back();
-
-    BoundingBox bbox1(cp_a.boundingBox());
-    BoundingBox bbox2(cp_b.boundingBox());
-
-    if (!bbox1.intersects(bbox2))
-      continue; // no intersection
-    else if (bbox1.diagonal().norm() < _epsilon)
-      addIntersection(bbox1.center());
-    else if (bbox2.diagonal().norm() < _epsilon)
-      addIntersection(bbox2.center());
-    else
-    {
-      // intersection exists, but segments are still too large
-      // - divide both segments in half
-      // - insert all combinations for next iteration
-      // - last pair is one where both subcurves have smallest t ranges
-      auto subcurve_a = cp_a.splitCurve(0.5);
-      auto subcurve_b = cp_b.splitCurve(0.5);
-      subcurve_pairs.emplace_back(subcurve_a.first, subcurve_b.first);
-      subcurve_pairs.emplace_back(subcurve_a.second, std::move(subcurve_b.first));
-      subcurve_pairs.emplace_back(std::move(subcurve_a.first), subcurve_b.second);
-      subcurve_pairs.emplace_back(std::move(subcurve_a.second), std::move(subcurve_b.second));
-    }
-  }
-
   return intersections;
 }
 
@@ -676,10 +608,10 @@ void Curve::setKnot(int idx, double value)
 
   resetCache();
 
-  if (idx == 0 || idx == T_.size()-1)
-      return;
-  for (int i=std::max(0.0, idx-2.0*p_); i<=std::min((int)spans_.size()-1, idx-1); i++)
-    spans_[i].update();
+  for (int i = std::max(0.0, idx - 2.0 * p_); i <= std::min((int)spans_.size() - 1, idx - 1); i++)
+  {
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
+  }
 }
 
 double Curve::knot(int idx) const { return T_(idx); }
@@ -693,8 +625,9 @@ void Curve::setWeight(int idx, double value)
   weighted_control_points_.row(idx) *= value / weighted_control_points_(idx, 2);
 
   for (int i = std::max<int>(0, idx - p_); i <= idx && i < spans_.size(); i++)
-    spans_[i].updateControlPoints();
-
+  {
+    spans_[i].updateControlPoints(weighted_control_points_.middleRows(i, p_ + 1));
+  }
   resetCache();
 }
 
@@ -731,8 +664,8 @@ void Curve::insertKnot(double t, int r)
   wpoints_new.bottomRows(N_ - k + s) = weighted_control_points_.bottomRows(N_ - k + s);
 
   // setup new control points
-  Eigen::MatrixX3d wpoints_segment(sp.wpoints().topRows(p_ - s + 1));
-  Eigen::VectorXd t_segment(sp.knots());
+  Eigen::MatrixX3d wpoints_segment(weighted_control_points_.middleRows(k - p_, p_ - s + 1));
+  Eigen::VectorXd t_segment(T_.segment(k - p_ + 1, 2 * p_));
 
   for (int j = 1; j <= r && j + s <= p_; j++) /* Insert the knot r times */
   {
@@ -758,8 +691,7 @@ void Curve::insertKnot(double t, int r)
   // reassign spans
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();
@@ -777,8 +709,7 @@ void Curve::appendPoint(Point point)
 
   for (int i = 0; i < spans_.size(); i++)
   {
-    spans_[i].reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    spans_[i].update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   spans_.emplace_back(weighted_control_points_.middleRows(N_ - p_, p_ + 1), T_.segment(N_ - p_ + 1, 2 * p_), p_);
@@ -816,9 +747,11 @@ std::vector<Curve> Curve::piecewiseBezier() const
 void Curve::normalizeKnotVector()
 {
   T_ -= T_(0);
-  T_ /= T_(T_.size() - 1);
-  for (auto& span : spans_)
-    span.update();
+  T_ /= T_(T_.rows() - 1);
+  for (int i = 0; i < spans_.size(); i++)
+  {
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
+  }
 }
 
 Span& Curve::getKnotSpan(double t) const
@@ -920,8 +853,7 @@ void Curve::removeKnot(int ix, int k)
   // reassign spans
   for (auto& span : spans_)
   {
-    span.reassign(weighted_control_points_.middleRows(i, p_ + 1), T_.segment(i + 1, 2 * p_));
-    span.update();
+    spans_[i].update(T_.segment(i + 1, 2 * p_), weighted_control_points_.middleRows(i, p_ + 1));
   }
 
   resetCache();

@@ -3,8 +3,8 @@
 
 #include <limits>
 #include <map>
-#include <optional>
 #include <numeric>
+#include <optional>
 
 #include "NURBS/declarations.h"
 #include "NURBS/span.h"
@@ -147,7 +147,7 @@ public:
    * \brief Get the bounding box of curve
    * \return Bounding box (if use_roots is false, returns the bounding box of control points)
    */
-  BoundingBox boundingBox() const;
+  BoundingBox boundingBox(bool use_roots = true) const;
 
   /*!
    * \brief Get the derivative of a curve
@@ -232,7 +232,7 @@ public:
    * \param curve Second curve
    * \return Vector of points where the curves intersect
    */
-  PointVector intersections(const Curve& curve) const;
+  PointVector intersections(const Curve& other) const;
 
   /*!
    * \brief Get the weight of the control point at index \c idx
@@ -376,7 +376,7 @@ private:
   mutable std::optional<std::vector<double>> cached_roots_; /*! If generated, stores roots for later use */
   mutable std::optional<BoundingBox> cached_bounding_box_;  /*! If generated, stores bounding box for later use */
   mutable std::optional<PointVector> cached_polyline_;      /*! If generated, stores polyline for later use */
-  mutable double cached_polyline_flatness_{};                      /*! Flatness of cached polyline */
+  mutable double cached_polyline_flatness_{};               /*! Flatness of cached polyline */
 
   /// Knot vector
   Eigen::ArrayXd T_;

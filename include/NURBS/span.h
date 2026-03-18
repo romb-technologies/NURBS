@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #include <unsupported/Eigen/FFT>
+#include <unsupported/Eigen/Polynomials>
 
 namespace NURBS
 {
@@ -26,15 +27,13 @@ public:
   ~Span() = default;
   Span(Eigen::Ref<Eigen::MatrixX3d> wpoints_, Eigen::Ref<Eigen::ArrayXd> knot_v, unsigned p);
 
-  /// Reference to this span's control points in its parent curve.
-  Eigen::Ref<Eigen::MatrixX3d> wpoints() const;
-  /// Reference to this span's knots in its parent curve.
-  Eigen::Ref<Eigen::ArrayXd> knots() const;
+  Span(Eigen::Ref<const Eigen::MatrixXd> basis_func, Eigen::Ref<const Eigen::MatrixXd> vbf,
+       Eigen::Ref<const Eigen::RowVectorXd> wbf, double start, double end);
 
   /// Start knot of this span.
-  inline double start() const { return knots_(p_ - 1); }
+  inline double start() const { return start_; }
   /// End knot of this span.
-  inline double end() const { return knots_(p_); }
+  inline double end() const { return end_; }
   /*!
    * \brief Check if the curve parameter \c t is contained in this span.
    * \param t Curve parameter
@@ -44,15 +43,16 @@ public:
   /*!
    * \brief Update the knot span's basis function
    * \warning Must be called every time this span's
-   *  knot vector segment is changed.
+   *  knot vector segment, or both knot vector and control points are changed.
    */
-  void update();
+  void update(Eigen::Ref<Eigen::ArrayXd> knots, Eigen::Ref<Eigen::MatrixX3d> wpoints);
   /*!
    * \brief Update the knot span's \c cached_vbf and \c cached_wbf
    * \warning Must be called every time this knot span's
-   * control points are changed.
+   *  control points and/or weights are changed. If both knot vector and control points/weights
+   *  are changed use the \c update method.
    */
-  void updateControlPoints();
+  void updateControlPoints(Eigen::Ref<Eigen::MatrixX3d> wpoints);
   /*!
    * \brief Retrieve this knot span's basis function in matrix form.
    * \return Basis function
@@ -62,7 +62,7 @@ public:
    * \brief Evaluate the polyline representation of this knot span.
    * \return A vector of polyline vertices
    */
-  PointVector polyline() const;
+  PointVector polyline(double flatness = 0.5) const;
   /*!
    * \brief Get the point on this knot span for a given t
    * \param u Span parameter
@@ -112,18 +112,22 @@ public:
    * \return Matrix
    */
   Eigen::MatrixXd cachedVBF() const;
+
   /*!
-   * \brief Reassign this span's control points and knot vector
-   * \param wpoints Reference to control point segment
-   * \param knots Reference to knot vector segment
+   * \brief Get the bounding box of this knot span
+   * \return Bounding box
    */
-  void reassign(Eigen::Ref<Eigen::MatrixX3d> wpoints, Eigen::Ref<Eigen::ArrayXd> knots);
+  BoundingBox boundingBox() const;
+  std::vector<double> extrema() const;
+  PointVector intersections(const Span& other) const;
 
 private:
   mutable std::optional<double> cached_length_;
   mutable std::optional<PointVector> cached_polyline_;
   mutable std::optional<Eigen::VectorXd> cached_chebyshev_coeffs_; /*!  If generated, stores chebyshev coefficients
                                                                         for calculating the length of the curve */
+  mutable std::optional<BoundingBox> cached_bounding_box_;
+
   /// This knot span's basis function
   Eigen::MatrixXd basis_function_;
   /// Weights times basis function
@@ -135,10 +139,16 @@ private:
    * \warning Must always match curve order
    */
   const unsigned p_;
-  /// Reference to this span's control points in its parent curve.
-  Eigen::Ref<Eigen::MatrixX3d> wpoints_;
-  /// Reference to this span's knots in its parent curve.
-  Eigen::Ref<Eigen::ArrayXd> knots_;
+  double start_, end_;
+
+  /*!
+   * \brief Get the bounding box of this knot span's implicit control points
+   * \warning This bounding box is bigger than the bounds of the actual curve and
+   * should not be used for precise calculations.
+   * \return Bounding box
+   */
+  static inline BoundingBox fastBoundingBox(const Eigen::MatrixXd& vbf, const Eigen::RowVectorXd& wbf,
+                                            const Eigen::MatrixXd& inverse_basis_function);
 };
 } // namespace NURBS
 
