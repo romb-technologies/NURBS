@@ -4,7 +4,7 @@ qVectorField::qVectorField(QWidget* parent)
 {
   h_layout = new QHBoxLayout(this);
   setLayout(h_layout);
-  h_layout->setMargin(0);
+  h_layout->setContentsMargins(0, 0, 0, 0);
   h_layout->setSpacing(0);
   h_layout->addStretch();
 }
