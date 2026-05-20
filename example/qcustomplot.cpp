@@ -7620,8 +7620,7 @@ QString QCPAxisTickerPi::fractionToString(int numerator, int denominator) const
       {
         return QString(QLatin1String("%1%2%3"))
             .arg(sign == -1 ? QLatin1String("-") : QLatin1String(""))
-            .arg(integerPart > 0 ? QString::number(integerPart) : QLatin1String(""))
-            .arg(unicodeFraction(remainder, denominator));
+            .arg(integerPart > 0 ? QString::number(integerPart) : QLatin1String(""), unicodeFraction(remainder, denominator));
       }
     }
   }

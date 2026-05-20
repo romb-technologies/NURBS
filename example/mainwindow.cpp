@@ -89,7 +89,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent), ui(new Ui::MainWi
     for (int i = 0; i < ui->curveList->count(); i++)
     {
       CurveListWidgetItem* item = static_cast<CurveListWidgetItem*>(ui->curveList->item(i));
-      if (item->curve == scene->selectedItems()[0])
+      if (item->curve == scene->selectedItems().at(0))
       {
         ui->curveList->setCurrentItem(item);
         return;
